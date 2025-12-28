@@ -197,14 +197,12 @@ export async function scrapeProduct(url: string): Promise<{
 
 /**
  * Validate if a URL is a valid morele.net product URL
+ * Only checks if the domain is morele.net
  */
 export function isValidMoreleUrl(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    return (
-      urlObj.hostname.includes("morele.net") &&
-      (urlObj.pathname.endsWith(".html") || urlObj.pathname.includes("/"))
-    );
+    return urlObj.hostname.includes("morele.net");
   } catch {
     return false;
   }
