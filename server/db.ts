@@ -1,7 +1,19 @@
-import { eq } from "drizzle-orm";
+import { eq, and, desc, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  products,
+  Product,
+  InsertProduct,
+  priceHistory,
+  PriceHistory,
+  InsertPriceHistory,
+  settings,
+  Settings,
+  InsertSettings,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -56,8 +68,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,9 +96,209 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============ PRODUCT QUERIES ============
+
+export async function createProduct(
+  userId: number,
+  data: Omit<InsertProduct, "userId">
+): Promise<Product | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(products)
+    .values({ ...data, userId })
+    .$returningId();
+
+  if (result.length === 0) return null;
+
+  const productId = result[0].id;
+  const created = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function getUserProducts(userId: number): Promise<Product[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db.select().from(products).where(eq(products.userId, userId));
+}
+
+export async function getProductById(id: number): Promise<Product | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateProduct(
+  id: number,
+  data: Partial<InsertProduct>
+): Promise<Product | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  await db.update(products).set(data).where(eq(products.id, id));
+
+  return getProductById(id);
+}
+
+export async function deleteProduct(id: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  await db.delete(products).where(eq(products.id, id));
+  return true;
+}
+
+// ============ PRICE HISTORY QUERIES ============
+
+export async function recordPrice(
+  productId: number,
+  price: number
+): Promise<PriceHistory | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(priceHistory)
+    .values({ productId, price })
+    .$returningId();
+
+  if (result.length === 0) return null;
+
+  const historyId = result[0].id;
+  const created = await db
+    .select()
+    .from(priceHistory)
+    .where(eq(priceHistory.id, historyId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function getProductPriceHistory(
+  productId: number,
+  limit: number = 100
+): Promise<PriceHistory[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(priceHistory)
+    .where(eq(priceHistory.productId, productId))
+    .orderBy(desc(priceHistory.recordedAt))
+    .limit(limit);
+}
+
+export async function getProductPriceHistoryByDate(
+  productId: number,
+  daysBack: number = 30
+): Promise<PriceHistory[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+
+  return db
+    .select()
+    .from(priceHistory)
+    .where(
+      and(
+        eq(priceHistory.productId, productId),
+        gte(priceHistory.recordedAt, cutoffDate)
+      )
+    )
+    .orderBy(desc(priceHistory.recordedAt));
+}
+
+// ============ SETTINGS QUERIES ============
+
+export async function getOrCreateSettings(userId: number): Promise<Settings> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const existing = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return existing[0];
+  }
+
+  // Create default settings
+  const result = await db
+    .insert(settings)
+    .values({
+      userId,
+      trackingIntervalMinutes: 60,
+      priceDropAlertThreshold: 10,
+    })
+    .$returningId();
+
+  const settingsId = result[0].id;
+  const created = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.id, settingsId))
+    .limit(1);
+
+  return created[0];
+}
+
+export async function updateSettings(
+  userId: number,
+  data: Partial<InsertSettings>
+): Promise<Settings | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  await db.update(settings).set(data).where(eq(settings.userId, userId));
+
+  const result = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getSettings(userId: number): Promise<Settings | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}

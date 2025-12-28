@@ -25,4 +25,41 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+export const products = mysqlTable("products", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  url: varchar("url", { length: 2048 }).notNull(),
+  productCode: varchar("productCode", { length: 64 }),
+  currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
+  previousPrice: int("previousPrice"),
+  priceChangePercent: int("priceChangePercent"), // Store as percentage * 100 (e.g., -10.5% = -1050)
+  lastCheckedAt: timestamp("lastCheckedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = typeof products.$inferInsert;
+
+export const priceHistory = mysqlTable("priceHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  productId: int("productId").notNull().references(() => products.id, { onDelete: "cascade" }),
+  price: int("price").notNull(), // Store as cents
+  recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+});
+
+export type PriceHistory = typeof priceHistory.$inferSelect;
+export type InsertPriceHistory = typeof priceHistory.$inferInsert;
+
+export const settings = mysqlTable("settings", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  trackingIntervalMinutes: int("trackingIntervalMinutes").default(60).notNull(),
+  priceDropAlertThreshold: int("priceDropAlertThreshold").default(10).notNull(), // percentage
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = typeof settings.$inferInsert;
