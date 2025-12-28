@@ -78,20 +78,94 @@ export async function scrapeProduct(url: string): Promise<{
     // Navigate to the product page with timeout
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-    // Wait for the price element to be present
-    await page.waitForSelector("#product_price", { timeout: 10000 });
+    // Wait for content to load - try multiple strategies
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Extract product information
     const result = await page.evaluate(() => {
-      // Get product name
-      const nameElement = document.querySelector("h1");
-      const name = nameElement?.textContent?.trim() || null;
+      // Get product name from h1 or title
+      let name = null;
+      const h1 = document.querySelector("h1");
+      if (h1) {
+        name = h1.textContent?.trim() || null;
+      }
+      if (!name) {
+        const titleTag = document.querySelector("title");
+        if (titleTag) {
+          name = titleTag.textContent?.split(" - ")[0]?.trim() || null;
+        }
+      }
 
-      // Get price from the specific div
+      // Get price from multiple possible locations
+      let priceText = null;
+
+      // Strategy 1: Try primary selector first
       const priceElement = document.getElementById("product_price");
-      const priceText = priceElement?.textContent?.trim() || null;
+      if (priceElement) {
+        const text = priceElement.textContent?.trim();
+        if (text && text.length > 0) {
+          priceText = text;
+        }
+      }
 
-      // Get product code from URL or meta tag
+      // Strategy 2: Look for price in common price containers
+      if (!priceText) {
+        const selectors = [
+          '[class*="price"]',
+          '[class*="Price"]',
+          '[data-price]',
+          '.product-price',
+          '.current-price',
+          '[class*="cost"]',
+          '[class*="Cost"]',
+        ];
+
+        for (const selector of selectors) {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach((el) => {
+            const text = el.textContent?.trim();
+            if (text && /\d+[.,]\d+\s*zł/.test(text)) {
+              priceText = text;
+            }
+          });
+          if (priceText) break;
+        }
+      }
+
+      // Strategy 3: Search for price pattern in all visible text
+      if (!priceText) {
+        const walker = document.createTreeWalker(
+          document.body,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.textContent?.trim() || "";
+          if (/^\d+[.,]\d+\s*zł$/.test(text)) {
+            priceText = text;
+            break;
+          }
+        }
+      }
+
+      // Strategy 4: Look for any span/div with just price
+      if (!priceText) {
+        const allElements = document.querySelectorAll("span, div, p");
+        allElements.forEach((el) => {
+          const text = el.textContent?.trim() || "";
+          if (
+            /^\d+[.,]\d+\s*zł$/.test(text) &&
+            text.length < 20 &&
+            el.children.length === 0
+          ) {
+            priceText = text;
+          }
+        });
+      }
+
+      // Get product code from URL
       const url = window.location.href;
       const codeMatch = url.match(/(\d+)\.html/);
       const productCode = codeMatch ? codeMatch[1] : null;

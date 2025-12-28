@@ -31,3 +31,6 @@
 - [x] Test price scraping functionality
 - [x] Test alert notification system
 - [ ] Create checkpoint and prepare for deployment
+
+## Bug Fixes
+- [x] Fix price scraping from div#product_price - implement multi-strategy price extraction
