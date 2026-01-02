@@ -35,3 +35,4 @@
 ## Bug Fixes
 - [x] Fix price scraping from div#product_price - implement multi-strategy price extraction
 - [x] Fix URL validation to accept morele.net links without .html extension
+- [x] Refine scraper to extract main product price - successfully extracting prices from morele.net products

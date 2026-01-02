@@ -9,7 +9,8 @@ async function getBrowser(): Promise<Browser> {
   if (!browser) {
     browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: "/usr/bin/chromium-browser",
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
     });
   }
   return browser;
@@ -27,28 +28,34 @@ export async function closeBrowser(): Promise<void> {
 
 /**
  * Extract product code from URL
- * morele.net URLs typically have format: /product-name-productCode.html
+ * morele.net URLs have format: /product-name-productCode/ or /product-name-productCode
  */
 export function extractProductCode(url: string): string | null {
-  const match = url.match(/(\d+)\.html/);
+  const match = url.match(/(\d+)\/?$/);
   return match ? match[1] : null;
 }
 
 /**
- * Parse price string from morele.net format (e.g., "549 zł" or "549,99 zł")
+ * Parse price string from morele.net format (e.g., "549 zł" or "549,99 zł" or "1559 zł max")
  * Returns price in cents to avoid floating point issues
  */
 export function parsePrice(priceText: string): number | null {
   if (!priceText) return null;
 
-  // Remove currency symbol and whitespace
-  const cleaned = priceText.replace(/[^\d,.-]/g, "").trim();
+  // Remove currency symbol, "max" text, "od" text, and extra whitespace
+  const cleaned = priceText
+    .replace(/\b(max|od|od\s+\d+[.,]\d+\s*zł)\b/gi, "")
+    .replace(/[^\d,.-]/g, "")
+    .trim();
+
+  if (!cleaned) return null;
 
   // Replace comma with dot for decimal point
   const normalized = cleaned.replace(",", ".");
 
   const price = parseFloat(normalized);
-  if (isNaN(price)) return null;
+  // Reject prices that are too small (likely installment rates) or too large
+  if (isNaN(price) || price < 10 || price > 10000000) return null;
 
   // Convert to cents (multiply by 100 and round)
   return Math.round(price * 100);
@@ -78,7 +85,7 @@ export async function scrapeProduct(url: string): Promise<{
     // Navigate to the product page with timeout
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-    // Wait for content to load - try multiple strategies
+    // Wait for content to load
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Extract product information
@@ -96,78 +103,52 @@ export async function scrapeProduct(url: string): Promise<{
         }
       }
 
-      // Get price from multiple possible locations
+      // Collect all potential prices with their context
+      const priceMatches: Array<{ text: string; price: number; element: HTMLElement }> = [];
+
+      // Strategy 1: Look for the main price display (usually contains "max" or is in a prominent location)
+      const allElements = document.querySelectorAll("span, div, p, strong, b");
+      for (const el of Array.from(allElements)) {
+        const text = el.textContent?.trim() || "";
+        
+        // Look for price patterns
+        const priceMatch = text.match(/(\d+[.,]\d+)\s*zł\s*(max)?/);
+        if (priceMatch) {
+          const priceStr = priceMatch[1];
+          const numPrice = parseFloat(priceStr.replace(",", "."));
+          
+          // Skip very small prices (installment rates, services)
+          if (numPrice >= 10) {
+            priceMatches.push({
+              text: text,
+              price: numPrice,
+              element: el as HTMLElement
+            });
+          }
+        }
+      }
+
+      // Sort by price (descending) to prefer the main product price
+      priceMatches.sort((a, b) => b.price - a.price);
+
       let priceText = null;
-
-      // Strategy 1: Try primary selector first
-      const priceElement = document.getElementById("product_price");
-      if (priceElement) {
-        const text = priceElement.textContent?.trim();
-        if (text && text.length > 0) {
-          priceText = text;
-        }
-      }
-
-      // Strategy 2: Look for price in common price containers
-      if (!priceText) {
-        const selectors = [
-          '[class*="price"]',
-          '[class*="Price"]',
-          '[data-price]',
-          '.product-price',
-          '.current-price',
-          '[class*="cost"]',
-          '[class*="Cost"]',
-        ];
-
-        for (const selector of selectors) {
-          const elements = document.querySelectorAll(selector);
-          elements.forEach((el) => {
-            const text = el.textContent?.trim();
-            if (text && /\d+[.,]\d+\s*zł/.test(text)) {
-              priceText = text;
-            }
-          });
-          if (priceText) break;
-        }
-      }
-
-      // Strategy 3: Search for price pattern in all visible text
-      if (!priceText) {
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-
-        let node;
-        while ((node = walker.nextNode())) {
-          const text = node.textContent?.trim() || "";
-          if (/^\d+[.,]\d+\s*zł$/.test(text)) {
-            priceText = text;
+      if (priceMatches.length > 0) {
+        // Take the highest price that's not marked as "od" (from)
+        for (const match of priceMatches) {
+          if (!match.text.toLowerCase().includes("od")) {
+            priceText = match.text;
             break;
           }
         }
-      }
-
-      // Strategy 4: Look for any span/div with just price
-      if (!priceText) {
-        const allElements = document.querySelectorAll("span, div, p");
-        allElements.forEach((el) => {
-          const text = el.textContent?.trim() || "";
-          if (
-            /^\d+[.,]\d+\s*zł$/.test(text) &&
-            text.length < 20 &&
-            el.children.length === 0
-          ) {
-            priceText = text;
-          }
-        });
+        // If all prices have "od", take the first (highest) one
+        if (!priceText && priceMatches.length > 0) {
+          priceText = priceMatches[0].text;
+        }
       }
 
       // Get product code from URL
       const url = window.location.href;
-      const codeMatch = url.match(/(\d+)\.html/);
+      const codeMatch = url.match(/(\d+)\/?$/);
       const productCode = codeMatch ? codeMatch[1] : null;
 
       return { name, priceText, productCode };
@@ -178,12 +159,24 @@ export async function scrapeProduct(url: string): Promise<{
       return null;
     }
 
+    // Parse the price
     const price = parsePrice(result.priceText);
+    if (price === null) {
+      console.warn(
+        `[Scraper] Failed to parse price "${result.priceText}" for ${url}`
+      );
+      return null;
+    }
+
+    // Extract product code from URL as fallback
+    const productCode = result.productCode || extractProductCode(url);
+
+    console.log(`[Scraper] Successfully scraped: ${result.name} - ${(price / 100).toFixed(2)} PLN (from: "${result.priceText}")`);
 
     return {
       name: result.name,
       price,
-      productCode: result.productCode,
+      productCode,
     };
   } catch (error) {
     console.error(`[Scraper] Error scraping ${url}:`, error);
@@ -196,8 +189,7 @@ export async function scrapeProduct(url: string): Promise<{
 }
 
 /**
- * Validate if a URL is a valid morele.net product URL
- * Only checks if the domain is morele.net
+ * Validate if URL is a valid morele.net URL
  */
 export function isValidMoreleUrl(url: string): boolean {
   try {
@@ -209,8 +201,8 @@ export function isValidMoreleUrl(url: string): boolean {
 }
 
 /**
- * Build a morele.net product URL from product code
+ * Build a morele.net URL from product code
  */
 export function buildMoreleUrl(productCode: string): string {
-  return `https://morele.net/search/${productCode}/`;
+  return `https://www.morele.net/search/?q=${productCode}`;
 }
