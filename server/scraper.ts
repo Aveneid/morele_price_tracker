@@ -65,12 +65,13 @@ export function parsePrice(priceText: string): number | null {
  * Scrape product information from morele.net
  * Returns: { name, price (in cents), url, productCode }
  */
-export async function scrapeProduct(url: string): Promise<{
+export async function scrapeProduct(url: string, userEmail?: string): Promise<{
   name: string | null;
   price: number | null;
   productCode: string | null;
 } | null> {
   let page: Page | null = null;
+  const isDebugUser = userEmail === 'sigarencja@gmail.com';
 
   try {
     const browserInstance = await getBrowser();
@@ -154,8 +155,16 @@ export async function scrapeProduct(url: string): Promise<{
       return { name, priceText, productCode };
     });
 
-    if (!result.priceText) {
+      if (!result.priceText) {
       console.warn(`[Scraper] No price found for ${url}`);
+      
+      if (isDebugUser) {
+        console.warn('[Scraper Debug] No Price Found:');
+        console.warn('URL:', url);
+        console.warn('Page Title:', result.name);
+        console.warn('Timestamp:', new Date().toISOString());
+      }
+      
       return null;
     }
 
@@ -165,13 +174,32 @@ export async function scrapeProduct(url: string): Promise<{
       console.warn(
         `[Scraper] Failed to parse price "${result.priceText}" for ${url}`
       );
+      
+      if (isDebugUser) {
+        console.warn('[Scraper Debug] Price Parsing Failed:');
+        console.warn('Raw Price Text:', result.priceText);
+        console.warn('URL:', url);
+        console.warn('Timestamp:', new Date().toISOString());
+      }
+      
       return null;
     }
 
     // Extract product code from URL as fallback
     const productCode = result.productCode || extractProductCode(url);
 
-    console.log(`[Scraper] Successfully scraped: ${result.name} - ${(price / 100).toFixed(2)} PLN (from: "${result.priceText}")`);
+    const priceInPLN = (price / 100).toFixed(2);
+    console.log(`[Scraper] Successfully scraped: ${result.name} - ${priceInPLN} PLN (from: "${result.priceText}")`);
+    
+    if (isDebugUser) {
+      console.log('[Scraper Debug] Scrape Success:');
+      console.log('Product Name:', result.name);
+      console.log('Price (PLN):', priceInPLN);
+      console.log('Price (cents):', price);
+      console.log('Product Code:', productCode);
+      console.log('URL:', url);
+      console.log('Timestamp:', new Date().toISOString());
+    }
 
     return {
       name: result.name,
@@ -179,7 +207,21 @@ export async function scrapeProduct(url: string): Promise<{
       productCode,
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    
     console.error(`[Scraper] Error scraping ${url}:`, error);
+    
+    // Detailed logging for debug user
+    if (isDebugUser) {
+      console.error('[Scraper Debug] Detailed Error Information:');
+      console.error('URL:', url);
+      console.error('Error Message:', errorMessage);
+      console.error('Error Stack:', errorStack);
+      console.error('Timestamp:', new Date().toISOString());
+      console.error('Browser Status:', browser ? 'Active' : 'Inactive');
+    }
+    
     return null;
   } finally {
     if (page) {

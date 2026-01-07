@@ -1,5 +1,5 @@
 import * as cron from "node-cron";
-import { getUserProducts, getSettings, updateProduct, recordPrice } from "./db";
+import { getUserProducts, getSettings, updateProduct, recordPrice, getUserById } from "./db";
 import { scrapeProduct } from "./scraper";
 import { notifyOwner } from "./_core/notification";
 
@@ -59,6 +59,7 @@ async function trackUserPrices(userId: number): Promise<void> {
 
     const products = await getUserProducts(userId);
     const settings = await getSettings(userId);
+    const user = await getUserById(userId);
 
     if (!settings) {
       console.warn(`[Scheduler] Settings not found for user ${userId}`);
@@ -70,7 +71,7 @@ async function trackUserPrices(userId: number): Promise<void> {
     for (const product of products) {
       try {
         // Scrape current price
-        const scraped = await scrapeProduct(product.url);
+        const scraped = await scrapeProduct(product.url, user?.email || undefined);
         if (!scraped || scraped.price === null) {
           console.warn(
             `[Scheduler] Failed to scrape price for product ${product.id}`

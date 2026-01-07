@@ -86,7 +86,7 @@ export const appRouter = router({
         }
 
         // Scrape product information
-        const scraped = await scrapeProduct(url);
+        const scraped = await scrapeProduct(url, ctx.user.email || undefined);
         if (!scraped || !scraped.price) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",

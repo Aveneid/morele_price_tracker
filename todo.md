@@ -36,3 +36,11 @@
 - [x] Fix price scraping from div#product_price - implement multi-strategy price extraction
 - [x] Fix URL validation to accept morele.net links without .html extension
 - [x] Refine scraper to extract main product price - successfully extracting prices from morele.net products
+
+
+
+
+## New Enhancements
+- [x] Add detailed error logging for scraping failures (only for sigarencja@gmail.com)
+- [x] Add price graph on product detail page with historical data
+- [x] Show detailed price information (price value and date) on hover/tooltip
