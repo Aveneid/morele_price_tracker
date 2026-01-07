@@ -66,3 +66,14 @@
 
 ## Bug Fixes (Current Session)
 - [x] Fix category scraper to extract text from .breadcrumb a element and filter out brand links
+
+
+## Major Refactor: Remove Authentication & Create Admin Panel
+- [x] Remove user authentication from main application
+- [x] Make dashboard public without login
+- [x] Remove DashboardLayout sidebar
+- [x] Create admin panel route with separate login
+- [x] Add admin users table with SHA1 password hashing
+- [x] Implement admin login functionality
+- [ ] Create admin user management interface
+- [ ] Test public dashboard and admin panel

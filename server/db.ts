@@ -12,6 +12,8 @@ import {
   settings,
   Settings,
   InsertSettings,
+  adminUsers,
+  AdminUser,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -314,6 +316,32 @@ export async function getSettings(userId: number): Promise<Settings | null> {
     .select()
     .from(settings)
     .where(eq(settings.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+// ============ PUBLIC PRODUCTS QUERIES ============
+
+export async function getAllProducts(): Promise<Product[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db.select().from(products).orderBy(desc(products.createdAt));
+}
+
+// ============ ADMIN QUERIES ============
+
+export async function getAdminByUsername(
+  username: string
+): Promise<AdminUser | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(adminUsers)
+    .where(eq(adminUsers.username, username))
     .limit(1);
 
   return result.length > 0 ? result[0] : null;

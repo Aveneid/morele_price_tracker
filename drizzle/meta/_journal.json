@@ -29,6 +29,13 @@
       "when": 1767789331763,
       "tag": "0003_naive_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1767792202587,
+      "tag": "0004_fast_taskmaster",
+      "breakpoints": true
     }
   ]
 }
