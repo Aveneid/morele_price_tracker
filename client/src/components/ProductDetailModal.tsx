@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 interface ProductDetailModalProps {
   productId: number;
@@ -49,9 +50,34 @@ export default function ProductDetailModal({
       { enabled: isOpen && !!product }
     );
 
+  const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
+    onSuccess: () => {
+      toast.success("Price check requested!");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to request price check");
+    },
+  });
+
   const formatPrice = (cents: number | null) => {
     if (cents === null) return "N/A";
     return `${(cents / 100).toFixed(2)} zł`;
+  };
+
+  const canRequestPriceCheck = () => {
+    if (!product?.lastCheckedAt) return true;
+    const lastCheckTime = new Date(product.lastCheckedAt).getTime();
+    const now = Date.now();
+    const minutesSinceLastCheck = (now - lastCheckTime) / (1000 * 60);
+    return minutesSinceLastCheck >= 15;
+  };
+
+  const getMinutesUntilNextCheck = () => {
+    if (!product?.lastCheckedAt) return 0;
+    const lastCheckTime = new Date(product.lastCheckedAt).getTime();
+    const now = Date.now();
+    const minutesSinceLastCheck = (now - lastCheckTime) / (1000 * 60);
+    return Math.ceil(15 - minutesSinceLastCheck);
   };
 
   const chartData = (priceHistory || [])
@@ -149,9 +175,35 @@ export default function ProductDetailModal({
                     </div>
                   )}
 
+                  {canRequestPriceCheck() ? (
+                    <Button
+                      onClick={() =>
+                        priceCheckMutation.mutate({ productId })
+                      }
+                      disabled={priceCheckMutation.isPending}
+                      className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                    >
+                      {priceCheckMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Request Price Check
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="w-full mt-4 p-3 bg-gray-100 rounded text-sm text-gray-600 text-center">
+                      Next check available in {getMinutesUntilNextCheck()} min
+                    </div>
+                  )}
+
                   <Button
                     onClick={() => window.open(product.url, "_blank")}
-                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700"
+                    className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     View on morele.net

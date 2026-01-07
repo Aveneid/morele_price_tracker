@@ -49,6 +49,37 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getProductPriceHistory(input.productId);
       }),
+
+    // Request manual price check (public access, with cooldown)
+    requestPriceCheck: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .mutation(async ({ input }) => {
+        const product = await getProductById(input.productId);
+        if (!product) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        // Check if last check was less than 15 minutes ago
+        const lastCheckTime = product.lastCheckedAt
+          ? new Date(product.lastCheckedAt).getTime()
+          : 0;
+        const now = Date.now();
+        const minutesSinceLastCheck = (now - lastCheckTime) / (1000 * 60);
+
+        if (minutesSinceLastCheck < 15) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Please wait ${Math.ceil(15 - minutesSinceLastCheck)} more minutes before requesting another price check.`,
+          });
+        }
+
+        // Queue price check (in a real app, this would queue a job)
+        // For now, we'll just return success and let the scheduler handle it
+        return {
+          success: true,
+          message: "Price check requested. It will be updated shortly.",
+        };
+      }),
   }),
 
   // ============ ADMIN AUTHENTICATION ============

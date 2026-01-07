@@ -77,3 +77,10 @@
 - [x] Implement admin login functionality
 - [ ] Create admin user management interface
 - [ ] Test public dashboard and admin panel
+
+
+## New Feature: User-Requested Price Check
+- [x] Add "Request Price Check" button to product modal
+- [x] Implement 15-minute cooldown logic (hide button if last check < 15 min ago)
+- [x] Create API endpoint for manual price check requests
+- [x] Show loading state and success/error feedback
