@@ -44,3 +44,10 @@
 - [x] Add detailed error logging for scraping failures (only for sigarencja@gmail.com)
 - [x] Add price graph on product detail page with historical data
 - [x] Show detailed price information (price value and date) on hover/tooltip
+
+
+## UI Redesign
+- [x] Change product list to show clickable product names that open modal
+- [x] Add product image scraping from morele.net product pages
+- [x] Create product detail modal with image, price, and price graph
+- [x] Remove separate product detail page navigation

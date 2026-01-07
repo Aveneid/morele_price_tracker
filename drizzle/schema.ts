@@ -31,6 +31,7 @@ export const products = mysqlTable("products", {
   name: text("name").notNull(),
   url: varchar("url", { length: 2048 }).notNull(),
   productCode: varchar("productCode", { length: 64 }),
+  imageUrl: text("imageUrl"),
   currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
   previousPrice: int("previousPrice"),
   priceChangePercent: int("priceChangePercent"), // Store as percentage * 100 (e.g., -10.5% = -1050)

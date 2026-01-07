@@ -15,6 +15,13 @@
       "when": 1766785561287,
       "tag": "0001_nifty_quicksilver",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1767788692811,
+      "tag": "0002_solid_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

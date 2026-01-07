@@ -69,6 +69,7 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
   name: string | null;
   price: number | null;
   productCode: string | null;
+  imageUrl?: string | null;
 } | null> {
   let page: Page | null = null;
   const isDebugUser = userEmail === 'sigarencja@gmail.com';
@@ -152,7 +153,26 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
       const codeMatch = url.match(/(\d+)\/?$/);
       const productCode = codeMatch ? codeMatch[1] : null;
 
-      return { name, priceText, productCode };
+      // Get product image
+      let imageUrl = null;
+      const imgSelectors = [
+        'img[alt*="Zdjęcie produktu"]',
+        'img[alt*="produktu"]',
+        '.product-image img',
+        '[class*="image"] img',
+        'picture img',
+        'img[src*="morele"]',
+      ];
+
+      for (const selector of imgSelectors) {
+        const imgEl = document.querySelector(selector) as HTMLImageElement;
+        if (imgEl && imgEl.src && imgEl.src.length > 0) {
+          imageUrl = imgEl.src;
+          break;
+        }
+      }
+
+      return { name, priceText, productCode, imageUrl };
     });
 
       if (!result.priceText) {
@@ -205,6 +225,7 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
       name: result.name,
       price,
       productCode,
+      imageUrl: result.imageUrl,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

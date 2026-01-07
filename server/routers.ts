@@ -99,6 +99,7 @@ export const appRouter = router({
           name: scraped.name || "Unknown Product",
           url,
           productCode: scraped.productCode || productCode,
+          imageUrl: scraped.imageUrl || null,
           currentPrice: scraped.price,
           previousPrice: scraped.price,
           priceChangePercent: 0,

@@ -1,45 +1,32 @@
+import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
-import { AddProductDialog } from "@/components/AddProductDialog";
-import { TrendingDown, TrendingUp, Minus, Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { AddProductDialog } from "@/components/AddProductDialog";
+import ProductDetailModal from "@/components/ProductDetailModal";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(
+    null
+  );
 
-  const { data: products, isLoading, refetch } = trpc.products.list.useQuery();
-  const updatePriceMutation = trpc.products.updatePrice.useMutation();
+  const { data: products, isLoading: productsLoading, refetch } =
+    trpc.products.list.useQuery();
   const deleteProductMutation = trpc.products.delete.useMutation();
 
-  const handleUpdatePrice = async (productId: number) => {
-    try {
-      await updatePriceMutation.mutateAsync({ id: productId });
-      await refetch();
-      toast.success("Price updated successfully");
-    } catch (error) {
-      toast.error("Failed to update price");
-    }
-  };
-
   const handleDeleteProduct = async (productId: number) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+
     try {
       await deleteProductMutation.mutateAsync({ id: productId });
-      await refetch();
-      toast.success("Product removed");
+      toast.success("Product deleted successfully");
+      refetch();
     } catch (error) {
       toast.error("Failed to delete product");
     }
@@ -52,20 +39,16 @@ export default function Dashboard() {
 
   const getPriceChangeColor = (percent: number | null) => {
     if (percent === null || percent === 0) return "text-gray-600";
-    if (percent < 0) return "text-green-600";
-    return "text-red-600";
+    return percent < 0 ? "text-green-600" : "text-red-600";
   };
 
   const getPriceChangeIcon = (percent: number | null) => {
-    if (percent === null || percent === 0) return <Minus className="w-4 h-4" />;
-    if (percent < 0) return <TrendingDown className="w-4 h-4" />;
-    return <TrendingUp className="w-4 h-4" />;
-  };
-
-  const formatPriceChange = (percent: number | null) => {
-    if (percent === null || percent === 0) return "No change";
-    const actualPercent = (percent / 100).toFixed(2);
-    return `${percent < 0 ? "" : "+"}${actualPercent}%`;
+    if (percent === null || percent === 0) return null;
+    return percent < 0 ? (
+      <TrendingDown className="w-4 h-4" />
+    ) : (
+      <TrendingUp className="w-4 h-4" />
+    );
   };
 
   return (
@@ -78,114 +61,144 @@ export default function Dashboard() {
               Monitor and compare prices from morele.net
             </p>
           </div>
-          <Button onClick={() => setShowAddDialog(true)} size="lg">
+          <Button onClick={() => setIsAddDialogOpen(true)} size="lg">
             + Add Product
           </Button>
         </div>
 
-        {showAddDialog && (
-          <AddProductDialog
-            onClose={() => setShowAddDialog(false)}
-            onSuccess={() => {
-              setShowAddDialog(false);
-              refetch();
-            }}
-          />
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Tracked Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-              </div>
-            ) : !products || products.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">
+        {productsLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : !products || products.length === 0 ? (
+          <Card>
+            <CardContent className="pt-12 pb-12">
+              <div className="text-center">
+                <p className="text-gray-500 text-lg mb-4">
                   No products tracked yet. Add one to get started!
                 </p>
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  Add Your First Product
+                </Button>
               </div>
-            ) : (
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tracked Products ({products.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product Name</TableHead>
-                      <TableHead>Current Price</TableHead>
-                      <TableHead>Previous Price</TableHead>
-                      <TableHead>Change</TableHead>
-                      <TableHead>Last Checked</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                        Product
+                      </th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                        Current Price
+                      </th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                        Previous Price
+                      </th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                        Change
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                        Last Checked
+                      </th>
+                      <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium max-w-xs truncate">
-                          <a
-                            href={product.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                      <tr
+                        key={product.id}
+                        className="border-b hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="py-4 px-4">
+                          <button
+                            onClick={() => setSelectedProductId(product.id)}
+                            className="text-blue-600 hover:underline font-medium text-left max-w-xs truncate"
+                            title={product.name}
                           >
                             {product.name}
-                          </a>
-                        </TableCell>
-                        <TableCell className="font-semibold">
+                          </button>
+                        </td>
+                        <td className="py-4 px-4 text-right font-semibold">
                           {formatPrice(product.currentPrice)}
-                        </TableCell>
-                        <TableCell>{formatPrice(product.previousPrice)}</TableCell>
-                        <TableCell>
-                          <div
-                            className={`flex items-center gap-1 ${getPriceChangeColor(
-                              product.priceChangePercent
-                            )}`}
-                          >
-                            {getPriceChangeIcon(product.priceChangePercent)}
-                            <span className="text-sm font-medium">
-                              {formatPriceChange(product.priceChangePercent)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
+                        </td>
+                        <td className="py-4 px-4 text-right text-gray-600">
+                          {formatPrice(product.previousPrice)}
+                        </td>
+                        <td
+                          className={`py-4 px-4 text-right font-semibold flex items-center justify-end gap-2 ${getPriceChangeColor(
+                            product.priceChangePercent
+                          )}`}
+                        >
+                          {getPriceChangeIcon(product.priceChangePercent)}
+                          {product.priceChangePercent === null
+                            ? "N/A"
+                            : `${(product.priceChangePercent / 100).toFixed(2)}%`}
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-600">
                           {product.lastCheckedAt
-                            ? new Date(product.lastCheckedAt).toLocaleString()
+                            ? new Date(product.lastCheckedAt).toLocaleString(
+                                "pl-PL",
+                                {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
                             : "Never"}
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdatePrice(product.id)}
-                            disabled={updatePriceMutation.isPending}
-                          >
-                            {updatePriceMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              "Check"
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={deleteProductMutation.isPending}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleDeleteProduct(product.id)
+                              }
+                              disabled={deleteProductMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {isAddDialogOpen && (
+        <AddProductDialog
+          onClose={() => setIsAddDialogOpen(false)}
+          onSuccess={() => {
+            setIsAddDialogOpen(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {selectedProductId && (
+        <ProductDetailModal
+          productId={selectedProductId}
+          isOpen={selectedProductId !== null}
+          onClose={() => setSelectedProductId(null)}
+        />
+      )}
     </DashboardLayout>
   );
 }
