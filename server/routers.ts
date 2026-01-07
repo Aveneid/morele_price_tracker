@@ -100,6 +100,7 @@ export const appRouter = router({
           url,
           productCode: scraped.productCode || productCode,
           imageUrl: scraped.imageUrl || null,
+          category: scraped.category || null,
           currentPrice: scraped.price,
           previousPrice: scraped.price,
           priceChangePercent: 0,

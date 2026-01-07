@@ -70,6 +70,7 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
   price: number | null;
   productCode: string | null;
   imageUrl?: string | null;
+  category?: string | null;
 } | null> {
   let page: Page | null = null;
   const isDebugUser = userEmail === 'sigarencja@gmail.com';
@@ -184,7 +185,18 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
         }
       }
 
-      return { name, priceText, productCode, imageUrl };
+      // Get product category from breadcrumb (last .main-breadcrumb a element in span)
+      let category = null;
+      const breadcrumbs = document.querySelectorAll('.main-breadcrumb a');
+      if (breadcrumbs.length > 0) {
+        const lastBreadcrumb = breadcrumbs[breadcrumbs.length - 1];
+        const span = lastBreadcrumb.querySelector('span');
+        if (span) {
+          category = span.textContent?.trim() || null;
+        }
+      }
+
+      return { name, priceText, productCode, imageUrl, category };
     });
 
       if (!result.priceText) {
@@ -238,6 +250,7 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
       price,
       productCode,
       imageUrl: result.imageUrl,
+      category: result.category,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

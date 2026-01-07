@@ -55,3 +55,10 @@
 
 ## Bug Fixes (Current)
 - [x] Fix price extraction to use data-price attribute from #product_price div
+
+
+## New Feature: Product Categories
+- [x] Add category field to products table schema
+- [x] Implement category scraping from .main-breadcrumb last element
+- [x] Add category filtering UI on dashboard
+- [x] Display category in product list

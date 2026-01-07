@@ -32,6 +32,7 @@ export const products = mysqlTable("products", {
   url: varchar("url", { length: 2048 }).notNull(),
   productCode: varchar("productCode", { length: 64 }),
   imageUrl: text("imageUrl"),
+  category: varchar("category", { length: 255 }), // Product category scraped from breadcrumb
   currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
   previousPrice: int("previousPrice"),
   priceChangePercent: int("priceChangePercent"), // Store as percentage * 100 (e.g., -10.5% = -1050)
