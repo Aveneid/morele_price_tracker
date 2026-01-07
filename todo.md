@@ -51,3 +51,7 @@
 - [x] Add product image scraping from morele.net product pages
 - [x] Create product detail modal with image, price, and price graph
 - [x] Remove separate product detail page navigation
+
+
+## Bug Fixes (Current)
+- [x] Fix price extraction to use data-price attribute from #product_price div

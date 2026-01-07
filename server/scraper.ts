@@ -105,46 +105,58 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
         }
       }
 
-      // Collect all potential prices with their context
-      const priceMatches: Array<{ text: string; price: number; element: HTMLElement }> = [];
-
-      // Strategy 1: Look for the main price display (usually contains "max" or is in a prominent location)
-      const allElements = document.querySelectorAll("span, div, p, strong, b");
-      for (const el of Array.from(allElements)) {
-        const text = el.textContent?.trim() || "";
-        
-        // Look for price patterns
-        const priceMatch = text.match(/(\d+[.,]\d+)\s*zł\s*(max)?/);
-        if (priceMatch) {
-          const priceStr = priceMatch[1];
-          const numPrice = parseFloat(priceStr.replace(",", "."));
-          
-          // Skip very small prices (installment rates, services)
-          if (numPrice >= 10) {
-            priceMatches.push({
-              text: text,
-              price: numPrice,
-              element: el as HTMLElement
-            });
-          }
+      // Primary strategy: Get price from #product_price div data-price attribute
+      let priceText = null;
+      const productPriceDiv = document.querySelector("#product_price");
+      if (productPriceDiv) {
+        const dataPrice = productPriceDiv.getAttribute("data-price");
+        if (dataPrice) {
+          // data-price is typically in format like "415.08" or "415,08"
+          priceText = dataPrice.replace(".", ",") + " zł";
         }
       }
 
-      // Sort by price (descending) to prefer the main product price
-      priceMatches.sort((a, b) => b.price - a.price);
+      // Fallback: Collect all potential prices with their context if data-price not found
+      if (!priceText) {
+        const priceMatches: Array<{ text: string; price: number; element: HTMLElement }> = [];
 
-      let priceText = null;
-      if (priceMatches.length > 0) {
-        // Take the highest price that's not marked as "od" (from)
-        for (const match of priceMatches) {
-          if (!match.text.toLowerCase().includes("od")) {
-            priceText = match.text;
-            break;
+        // Strategy 2: Look for the main price display (usually contains "max" or is in a prominent location)
+        const allElements = document.querySelectorAll("span, div, p, strong, b");
+        for (const el of Array.from(allElements)) {
+          const text = el.textContent?.trim() || "";
+          
+          // Look for price patterns
+          const priceMatch = text.match(/(\d+[.,]\d+)\s*zł\s*(max)?/);
+          if (priceMatch) {
+            const priceStr = priceMatch[1];
+            const numPrice = parseFloat(priceStr.replace(",", "."));
+            
+            // Skip very small prices (installment rates, services)
+            if (numPrice >= 10) {
+              priceMatches.push({
+                text: text,
+                price: numPrice,
+                element: el as HTMLElement
+              });
+            }
           }
         }
-        // If all prices have "od", take the first (highest) one
-        if (!priceText && priceMatches.length > 0) {
-          priceText = priceMatches[0].text;
+
+        // Sort by price (descending) to prefer the main product price
+        priceMatches.sort((a, b) => b.price - a.price);
+
+        if (priceMatches.length > 0) {
+          // Take the highest price that's not marked as "od" (from)
+          for (const match of priceMatches) {
+            if (!match.text.toLowerCase().includes("od")) {
+              priceText = match.text;
+              break;
+            }
+          }
+          // If all prices have "od", take the first (highest) one
+          if (!priceText && priceMatches.length > 0) {
+            priceText = priceMatches[0].text;
+          }
         }
       }
 
