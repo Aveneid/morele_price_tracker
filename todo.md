@@ -62,3 +62,7 @@
 - [x] Implement category scraping from .main-breadcrumb last element
 - [x] Add category filtering UI on dashboard
 - [x] Display category in product list
+
+
+## Bug Fixes (Current Session)
+- [x] Fix category scraper to extract text from .breadcrumb a element and filter out brand links

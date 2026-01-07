@@ -185,14 +185,27 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
         }
       }
 
-      // Get product category from breadcrumb (last .main-breadcrumb a element in span)
+      // Get product category from breadcrumb - find main category without filters
       let category = null;
-      const breadcrumbs = document.querySelectorAll('.main-breadcrumb a');
-      if (breadcrumbs.length > 0) {
-        const lastBreadcrumb = breadcrumbs[breadcrumbs.length - 1];
-        const span = lastBreadcrumb.querySelector('span');
-        if (span) {
-          category = span.textContent?.trim() || null;
+      const breadcrumbs = document.querySelectorAll('.breadcrumb a');
+      
+      for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+        const href = breadcrumbs[i].getAttribute('href') || '';
+        const text = breadcrumbs[i].textContent?.trim();
+        
+        if (href.includes('/kategoria/') && !href.includes(',,')) {
+          category = text || null;
+          break;
+        }
+      }
+      
+      if (!category && breadcrumbs.length > 0) {
+        for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+          const href = breadcrumbs[i].getAttribute('href') || '';
+          if (href.includes('/kategoria/')) {
+            category = breadcrumbs[i].textContent?.trim() || null;
+            break;
+          }
         }
       }
 
