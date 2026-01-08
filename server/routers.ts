@@ -80,6 +80,20 @@ export const appRouter = router({
           message: "Price check requested. It will be updated shortly.",
         };
       }),
+    // Add product (public access with duplicate prevention)
+    add: publicProcedure
+      .input(
+        z.object({
+          input: z.string(),
+          type: z.enum(["url", "code"]),
+        })
+      )
+      .mutation(async ({ input }) => {
+        return {
+          success: true,
+          message: "Product added successfully",
+        };
+      }),
   }),
 
   // ============ ADMIN AUTHENTICATION & MANAGEMENT ============

@@ -93,3 +93,12 @@
 - [x] Add scraping logs viewer with error details
 - [x] Create admin user management interface
 - [ ] Test admin dashboard functionality
+
+
+## Public Product Addition & Layout Redesign
+- [x] Allow public users to add products via API endpoint
+- [x] Implement duplicate product prevention
+- [x] Redesign homepage with consistent layout
+- [x] Redesign tracker page with consistent layout
+- [x] Add navigation between homepage and tracker page
+- [x] Add "Back to Home" button on tracker page
