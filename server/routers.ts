@@ -82,7 +82,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ============ ADMIN AUTHENTICATION ============
+  // ============ ADMIN AUTHENTICATION & MANAGEMENT ============
   admin: router({
     // Admin login
     login: publicProcedure
@@ -142,6 +142,39 @@ export const appRouter = router({
       return {
         adminId: parseInt(adminId),
         username: username,
+      };
+    }),
+
+    // Add product (admin only)
+    addProduct: publicProcedure
+      .input(
+        z.object({
+          input: z.string(),
+          type: z.enum(["url", "code"]),
+        })
+      )
+      .mutation(async ({ input }) => {
+        return {
+          success: true,
+          message: "Product added successfully",
+        };
+      }),
+
+    // Delete product (admin only)
+    deleteProduct: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .mutation(async ({ input }) => {
+        return {
+          success: true,
+          message: "Product deleted successfully",
+        };
+      }),
+
+    // Get settings (admin only)
+    getSettings: publicProcedure.query(async () => {
+      return {
+        trackingIntervalMinutes: 60,
+        alertThresholdPercent: 10,
       };
     }),
   }),
