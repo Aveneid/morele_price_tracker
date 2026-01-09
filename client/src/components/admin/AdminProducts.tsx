@@ -11,7 +11,7 @@ export default function AdminProducts() {
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
-  const addProductMutation = trpc.admin.addProduct.useMutation({
+  const addProductMutation = trpc.products.add.useMutation({
     onSuccess: () => {
       toast.success("Product added successfully");
       setNewProductUrl("");
@@ -22,7 +22,7 @@ export default function AdminProducts() {
     },
   });
 
-  const deleteProductMutation = trpc.admin.deleteProduct.useMutation({
+  const deleteProductMutation = trpc.products.delete.useMutation({
     onSuccess: () => {
       toast.success("Product deleted successfully");
     },
@@ -43,7 +43,6 @@ export default function AdminProducts() {
 
     addProductMutation.mutate({
       input: inputMode === "url" ? newProductUrl : newProductCode,
-      type: inputMode,
     });
   };
 
@@ -189,9 +188,11 @@ export default function AdminProducts() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button
-                        onClick={() =>
-                          deleteProductMutation.mutate({ productId: product.id })
-                        }
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this product?")) {
+                            deleteProductMutation.mutate({ productId: product.id });
+                          }
+                        }}
                         disabled={deleteProductMutation.isPending}
                         variant="ghost"
                         size="sm"

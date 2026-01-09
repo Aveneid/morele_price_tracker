@@ -41,7 +41,6 @@ export default function Dashboard() {
 
     addProductMutation.mutate({
       input: inputMode === "url" ? newProductUrl : newProductCode,
-      type: inputMode,
     });
   };
 

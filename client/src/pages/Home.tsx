@@ -37,7 +37,6 @@ export default function Home() {
 
     addProductMutation.mutate({
       input: inputMode === "url" ? newProductUrl : newProductCode,
-      type: inputMode,
     });
   };
 

@@ -15,7 +15,7 @@ export default function AdminSettings() {
   useEffect(() => {
     if (settings) {
       setTrackingInterval(settings.trackingIntervalMinutes.toString());
-      setAlertThreshold(settings.alertThresholdPercent.toString());
+      setAlertThreshold(((settings.priceDropAlertThreshold || 0) / 100).toString());
     }
   }, [settings]);
 
@@ -127,7 +127,7 @@ export default function AdminSettings() {
             • Products are checked every <strong>{trackingInterval} minutes</strong>
           </li>
           <li>
-            • Price alerts trigger on drops of <strong>{alertThreshold}%</strong> or
+            • Price alerts trigger on drops of <strong>{Math.round(parseFloat(alertThreshold))}%</strong> or
             more
           </li>
           <li>

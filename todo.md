@@ -109,3 +109,8 @@
 - [x] Add CSV export functionality for price history
 - [ ] Create user email configuration in settings
 - [ ] Test email notification system
+
+
+## Bug Fixes (Critical)
+- [x] Fix add product functionality - now properly adds products to database
+- [x] Fix request price check functionality - now properly updates prices
