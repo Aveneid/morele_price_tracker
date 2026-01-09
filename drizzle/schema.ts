@@ -59,6 +59,8 @@ export const settings = mysqlTable("settings", {
   userId: int("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   trackingIntervalMinutes: int("trackingIntervalMinutes").default(60).notNull(),
   priceDropAlertThreshold: int("priceDropAlertThreshold").default(10).notNull(), // percentage
+  userEmail: varchar("userEmail", { length: 320 }), // Email for notifications
+  emailNotificationsEnabled: int("emailNotificationsEnabled").default(0).notNull(), // 0 or 1 for boolean
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

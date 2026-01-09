@@ -102,3 +102,10 @@
 - [x] Redesign tracker page with consistent layout
 - [x] Add navigation between homepage and tracker page
 - [x] Add "Back to Home" button on tracker page
+
+
+## Additional Features (In Progress)
+- [ ] Implement email notifications for significant price drops
+- [x] Add CSV export functionality for price history
+- [ ] Create user email configuration in settings
+- [ ] Test email notification system

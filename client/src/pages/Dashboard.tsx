@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, Home, Filter, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Loader2, Home, Filter, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
+import { exportProductsToCsv } from "@/lib/csvExport";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -147,12 +148,25 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Category Filter */}
+        {/* Category Filter and Export */}
         {categories.length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-8 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="w-4 h-4 text-gray-600" />
-              <span className="font-semibold text-gray-900">Filter by Category:</span>
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-600" />
+                <span className="font-semibold text-gray-900">Filter by Category:</span>
+              </div>
+              {filteredProducts && filteredProducts.length > 0 && (
+                <Button
+                  onClick={() => exportProductsToCsv(filteredProducts, {})}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
