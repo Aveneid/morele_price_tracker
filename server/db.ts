@@ -8,7 +8,6 @@ import {
   InsertProduct,
   priceHistory,
   PriceHistory,
-  InsertPriceHistory,
   settings,
   Settings,
   InsertSettings,
@@ -31,6 +30,8 @@ export async function getDb() {
   }
   return _db;
 }
+
+// ============ USER QUERIES (for OAuth) ============
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -107,22 +108,6 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function getUserById(id: number) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
-}
-
 // ============ PRODUCT QUERIES ============
 
 export async function createProduct(
@@ -147,13 +132,6 @@ export async function createProduct(
     .limit(1);
 
   return created.length > 0 ? created[0] : null;
-}
-
-export async function getUserProducts(userId: number): Promise<Product[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return db.select().from(products).where(eq(products.userId, userId));
 }
 
 export async function getProductById(id: number): Promise<Product | null> {
@@ -181,12 +159,11 @@ export async function updateProduct(
   return getProductById(id);
 }
 
-export async function deleteProduct(id: number): Promise<boolean> {
+export async function getAllProducts(): Promise<Product[]> {
   const db = await getDb();
-  if (!db) return false;
+  if (!db) return [];
 
-  await db.delete(products).where(eq(products.id, id));
-  return true;
+  return db.select().from(products).orderBy(desc(products.createdAt));
 }
 
 // ============ PRICE HISTORY QUERIES ============
@@ -288,46 +265,6 @@ export async function getOrCreateSettings(userId: number): Promise<Settings> {
     .limit(1);
 
   return created[0];
-}
-
-export async function updateSettings(
-  userId: number,
-  data: Partial<InsertSettings>
-): Promise<Settings | null> {
-  const db = await getDb();
-  if (!db) return null;
-
-  await db.update(settings).set(data).where(eq(settings.userId, userId));
-
-  const result = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.userId, userId))
-    .limit(1);
-
-  return result.length > 0 ? result[0] : null;
-}
-
-export async function getSettings(userId: number): Promise<Settings | null> {
-  const db = await getDb();
-  if (!db) return null;
-
-  const result = await db
-    .select()
-    .from(settings)
-    .where(eq(settings.userId, userId))
-    .limit(1);
-
-  return result.length > 0 ? result[0] : null;
-}
-
-// ============ PUBLIC PRODUCTS QUERIES ============
-
-export async function getAllProducts(): Promise<Product[]> {
-  const db = await getDb();
-  if (!db) return [];
-
-  return db.select().from(products).orderBy(desc(products.createdAt));
 }
 
 // ============ ADMIN QUERIES ============

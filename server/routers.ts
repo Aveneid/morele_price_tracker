@@ -1,3 +1,8 @@
+import crypto from "crypto";
+import { eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -5,31 +10,45 @@ import { publicProcedure, router } from "./_core/trpc";
 import {
   getAllProducts,
   getProductById,
-  getProductPriceHistory,
+  getProductPriceHistoryByDate,
   getAdminByUsername,
   createProduct,
   recordPrice,
   updateProduct,
-  getProductPriceHistoryByDate,
   getOrCreateSettings,
   getDb,
 } from "./db";
-import { eq } from "drizzle-orm";
 import { products, priceHistory } from "../drizzle/schema";
-import { TRPCError } from "@trpc/server";
-import { z } from "zod";
-import crypto from "crypto";
 import { scrapeProduct } from "./scraper";
 
-// Helper to hash password with SHA1
+// ============ PASSWORD UTILITIES ============
+
+/**
+ * Hash password using SHA1
+ */
 function hashPasswordSHA1(password: string): string {
   return crypto.createHash("sha1").update(password).digest("hex");
 }
 
-// Helper to verify password
+/**
+ * Verify password against SHA1 hash
+ */
 function verifyPasswordSHA1(password: string, hash: string): boolean {
   return hashPasswordSHA1(password) === hash;
 }
+
+// ============ HELPER FUNCTIONS ============
+
+/**
+ * Check if enough time has passed since last price check
+ */
+function checkPriceCheckCooldown(lastCheckedAt: Date | null): number {
+  const lastCheckTime = lastCheckedAt ? new Date(lastCheckedAt).getTime() : 0;
+  const now = Date.now();
+  return (now - lastCheckTime) / (1000 * 60); // Return minutes since last check
+}
+
+// ============ ROUTER ============
 
 export const appRouter = router({
   // ============ PRODUCT TRACKING ============
@@ -39,11 +58,9 @@ export const appRouter = router({
       return getAllProducts();
     }),
 
-    // Get single product with price history (public access)
+    // Get single product (public access)
     get: publicProcedure
-      .input(
-        z.object({ id: z.number() })
-      )
+      .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         const product = await getProductById(input.id);
         if (!product) {
@@ -59,24 +76,17 @@ export const appRouter = router({
         return getProductPriceHistoryByDate(input.productId, 30);
       }),
 
-    // Request manual price check (public access, with cooldown)
+    // Request manual price check (public access, with 15-minute cooldown)
     requestPriceCheck: publicProcedure
-      .input(
-        z.object({ productId: z.number() })
-      )
+      .input(z.object({ productId: z.number() }))
       .mutation(async ({ input }) => {
         const product = await getProductById(input.productId);
         if (!product) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
-        // Check if last check was less than 15 minutes ago
-        const lastCheckTime = product.lastCheckedAt
-          ? new Date(product.lastCheckedAt).getTime()
-          : 0;
-        const now = Date.now();
-        const minutesSinceLastCheck = (now - lastCheckTime) / (1000 * 60);
-
+        // Check cooldown
+        const minutesSinceLastCheck = checkPriceCheckCooldown(product.lastCheckedAt);
         if (minutesSinceLastCheck < 15) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
@@ -84,32 +94,32 @@ export const appRouter = router({
           });
         }
 
-        // Perform immediate price check
+        // Perform price check
         try {
-          const scrapedData = await scrapeProduct(product.url, product.userId === 1 ? "sigarencja@gmail.com" : undefined);
-          
-          if (scrapedData) {
-            // Record the new price
-            if (scrapedData.price) {
-              await recordPrice(product.id, scrapedData.price);
-            }
-            
-            // Update product with new price and check time
-            const previousPrice = product.currentPrice;
-            await updateProduct(product.id, {
-              currentPrice: scrapedData.price || previousPrice,
-              previousPrice: previousPrice || scrapedData.price,
-              lastCheckedAt: new Date(),
-            });
+          const scrapedData = await scrapeProduct(product.url);
 
-            return {
-              success: true,
-              message: "Price updated successfully",
-              newPrice: scrapedData.price || 0,
-            };
-          } else {
+          if (!scrapedData) {
             throw new Error("Failed to scrape product price");
           }
+
+          // Record new price
+          if (scrapedData.price) {
+            await recordPrice(product.id, scrapedData.price);
+          }
+
+          // Update product
+          const previousPrice = product.currentPrice;
+          await updateProduct(product.id, {
+            currentPrice: scrapedData.price || previousPrice,
+            previousPrice: previousPrice || scrapedData.price,
+            lastCheckedAt: new Date(),
+          });
+
+          return {
+            success: true,
+            message: "Price updated successfully",
+            newPrice: scrapedData.price || 0,
+          };
         } catch (error: any) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -120,15 +130,11 @@ export const appRouter = router({
 
     // Add product (public access with duplicate prevention)
     add: publicProcedure
-      .input(
-        z.object({
-          input: z.string(),
-        })
-      )
+      .input(z.object({ input: z.string() }))
       .mutation(async ({ input }) => {
         try {
-          // Scrape the product - handle both URL and product code
-          const scrapedData = await scrapeProduct(input.input, undefined);
+          // Scrape product
+          const scrapedData = await scrapeProduct(input.input);
 
           if (!scrapedData) {
             throw new TRPCError({
@@ -137,7 +143,7 @@ export const appRouter = router({
             });
           }
 
-          // Check if product already exists
+          // Check for duplicates
           const allProducts = await getAllProducts();
           const exists = allProducts.some(
             (p) => p.productCode === scrapedData.productCode || p.url === input.input
@@ -150,9 +156,11 @@ export const appRouter = router({
             });
           }
 
-          // Create product with userId = 0 for public products
-          // Use the scraped URL if available, otherwise build one from product code
-          const productUrl = input.input.includes("morele.net") ? input.input : `https://www.morele.net/search/?q=${input.input}`;
+          // Create product
+          const productUrl = input.input.includes("morele.net")
+            ? input.input
+            : `https://www.morele.net/search/?q=${input.input}`;
+
           const newProduct = await createProduct(0, {
             name: scrapedData.name || "Unknown Product",
             url: productUrl,
@@ -194,11 +202,7 @@ export const appRouter = router({
 
     // Delete a product
     delete: publicProcedure
-      .input(
-        z.object({
-          productId: z.number(),
-        })
-      )
+      .input(z.object({ productId: z.number() }))
       .mutation(async ({ input }) => {
         try {
           const product = await getProductById(input.productId);
@@ -209,7 +213,6 @@ export const appRouter = router({
             });
           }
 
-          // Delete product from database
           const db = await getDb();
           if (!db) {
             throw new TRPCError({
@@ -218,9 +221,8 @@ export const appRouter = router({
             });
           }
 
-          // Delete price history first
+          // Delete price history first, then product
           await db.delete(priceHistory).where(eq(priceHistory.productId, input.productId));
-          // Delete product
           await db.delete(products).where(eq(products.id, input.productId));
 
           return {
@@ -239,7 +241,7 @@ export const appRouter = router({
       }),
   }),
 
-  // ============ ADMIN AUTHENTICATION & MANAGEMENT ============
+  // ============ ADMIN AUTHENTICATION ============
   admin: router({
     // Get admin settings
     getSettings: publicProcedure.query(async () => {
@@ -248,9 +250,7 @@ export const appRouter = router({
 
     // Admin login
     login: publicProcedure
-      .input(
-        z.object({ username: z.string(), password: z.string() })
-      )
+      .input(z.object({ username: z.string(), password: z.string() }))
       .mutation(async ({ input, ctx }) => {
         const admin = await getAdminByUsername(input.username);
 
@@ -291,11 +291,12 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
+
+  // ============ SYSTEM ROUTER ============
+  system: systemRouter,
 });
 
 export type AppRouter = typeof appRouter;
