@@ -118,3 +118,28 @@
 
 ## Current Issues
 - [x] Fix database insert error for priceChangePercent column - added default value
+
+
+## New Features (Feature Implementation Session)
+
+- [x] Feature 1: Automated Price Tracking with Cron Scheduler
+  - [x] Add check_interval field to products table
+  - [x] Create price tracking scheduler service
+  - [x] Add admin settings for global price check override
+  - [x] Integrate cron-based scheduling
+  - [x] Test automated price checks
+
+- [ ] Feature 2: Price Alert Notifications via Email
+  - [ ] Add price alert threshold to products table
+  - [ ] Create email notification service
+  - [ ] Integrate with Manus notification API
+  - [ ] Add notification preferences UI
+  - [ ] Test email notifications
+
+- [ ] Feature 3: Bulk Product Import via CSV
+  - [ ] Create CSV upload endpoint
+  - [ ] Parse and validate CSV data
+  - [ ] Implement batch product creation
+  - [ ] Add progress tracking for bulk imports
+  - [ ] Create import UI component
+  - [ ] Test bulk import functionality

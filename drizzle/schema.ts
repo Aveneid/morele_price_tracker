@@ -36,6 +36,8 @@ export const products = mysqlTable("products", {
   currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
   previousPrice: int("previousPrice"),
   priceChangePercent: int("priceChangePercent").default(0).notNull(), // Store as percentage * 100 (e.g., -10.5% = -1050)
+  checkIntervalMinutes: int("checkIntervalMinutes").default(60).notNull(), // Per-product check interval in minutes
+  priceAlertThreshold: int("priceAlertThreshold").default(10).notNull(), // Per-product alert threshold in percentage
   lastCheckedAt: timestamp("lastCheckedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

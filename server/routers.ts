@@ -20,6 +20,7 @@ import {
 } from "./db";
 import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
+import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 
 // ============ PASSWORD UTILITIES ============
 
@@ -221,6 +222,9 @@ export const appRouter = router({
             });
           }
 
+          // Remove from scheduler
+          removeProductSchedule(input.productId);
+
           // Delete price history first, then product
           await db.delete(priceHistory).where(eq(priceHistory.productId, input.productId));
           await db.delete(products).where(eq(products.id, input.productId));
@@ -236,6 +240,85 @@ export const appRouter = router({
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to delete product",
+          });
+        }
+      }),
+
+    // Update product check interval
+    updateCheckInterval: publicProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          checkIntervalMinutes: z.number().min(1).max(1440),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const product = await getProductById(input.productId);
+          if (!product) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Product not found",
+            });
+          }
+
+          await updateProduct(input.productId, {
+            checkIntervalMinutes: input.checkIntervalMinutes,
+          });
+
+          const updatedProduct = await getProductById(input.productId);
+          if (updatedProduct) {
+            updateProductSchedule(updatedProduct);
+          }
+
+          return {
+            success: true,
+            message: "Check interval updated successfully",
+          };
+        } catch (error: any) {
+          if (error.code) {
+            throw error;
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to update check interval",
+          });
+        }
+      }),
+
+    // Update product price alert threshold
+    updateAlertThreshold: publicProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          priceAlertThreshold: z.number().min(0).max(100),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const product = await getProductById(input.productId);
+          if (!product) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Product not found",
+            });
+          }
+
+          await updateProduct(input.productId, {
+            priceAlertThreshold: input.priceAlertThreshold,
+          });
+
+          return {
+            success: true,
+            message: "Alert threshold updated successfully",
+          };
+        } catch (error: any) {
+          if (error.code) {
+            throw error;
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to update alert threshold",
           });
         }
       }),

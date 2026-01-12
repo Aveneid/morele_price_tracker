@@ -50,6 +50,13 @@
       "when": 1767961830344,
       "tag": "0006_small_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1768226503798,
+      "tag": "0007_large_shooting_star",
+      "breakpoints": true
     }
   ]
 }
