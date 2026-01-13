@@ -129,12 +129,12 @@
   - [x] Integrate cron-based scheduling
   - [x] Test automated price checks
 
-- [ ] Feature 2: Price Alert Notifications via Email
-  - [ ] Add price alert threshold to products table
-  - [ ] Create email notification service
-  - [ ] Integrate with Manus notification API
-  - [ ] Add notification preferences UI
-  - [ ] Test email notifications
+- [x] Feature 2: Price Alert Notifications via Browser
+  - [x] Create browser notification service using Web Notifications API
+  - [x] Add notification permission request on app load
+  - [x] Send browser notifications when price drops detected
+  - [x] Add WebSocket server for real-time alerts
+  - [x] Test browser notifications
 
 - [ ] Feature 3: Bulk Product Import via CSV
   - [ ] Create CSV upload endpoint

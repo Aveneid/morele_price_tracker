@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -6,8 +7,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import AdminLogin from "./pages/AdminLogin";
-
 import AdminDashboard from "./pages/AdminDashboard";
+import { initializeNotifications } from "./lib/notifications";
 
 function Router() {
   return (
@@ -24,6 +25,11 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    // Initialize browser notifications on app load
+    initializeNotifications();
+  }, []);
+
   return (
     <ThemeProvider defaultTheme="light">
       <TooltipProvider>

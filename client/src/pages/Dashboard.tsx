@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { exportProductsToCsv } from "@/lib/csvExport";
+import { usePriceAlerts } from "@/hooks/usePriceAlerts";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -15,6 +16,11 @@ export default function Dashboard() {
   const [newProductUrl, setNewProductUrl] = useState("");
   const [newProductCode, setNewProductCode] = useState("");
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
+
+  // Listen for price alerts
+  usePriceAlerts((alert) => {
+    toast.success(`Price dropped for ${alert.productName}!`);
+  });
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
 

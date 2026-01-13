@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { getAllProducts, getProductById, recordPrice, updateProduct } from "./db";
 import { scrapeProduct } from "./scraper";
 import { notifyOwner } from "./_core/notification";
+import { broadcastPriceAlert } from "./notificationServer";
 
 /**
  * Price tracking scheduler that checks product prices on a configurable schedule
@@ -76,6 +77,15 @@ async function checkProductPrice(productId: number): Promise<void> {
         console.log(
           `[Price Alert] Product ${productId} price dropped ${dropPercent.toFixed(2)}% (threshold: ${product.priceAlertThreshold}%)`
         );
+
+        // Broadcast to all connected WebSocket clients
+        broadcastPriceAlert({
+          productId,
+          productName: product.name,
+          oldPrice: previousPrice,
+          newPrice: scrapedData.price,
+          dropPercent,
+        });
 
         // Send notification to owner
         await notifyOwner({
