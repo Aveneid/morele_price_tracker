@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { exportProductsToCsv } from "@/lib/csvExport";
 import { usePriceAlerts } from "@/hooks/usePriceAlerts";
+import { CsvImportDialog } from "@/components/CsvImportDialog";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -150,6 +151,7 @@ export default function Dashboard() {
                 </>
               )}
             </Button>
+            <CsvImportDialog />
           </div>
         </div>
 

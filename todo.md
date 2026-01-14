@@ -136,10 +136,10 @@
   - [x] Add WebSocket server for real-time alerts
   - [x] Test browser notifications
 
-- [ ] Feature 3: Bulk Product Import via CSV
-  - [ ] Create CSV upload endpoint
-  - [ ] Parse and validate CSV data
-  - [ ] Implement batch product creation
-  - [ ] Add progress tracking for bulk imports
-  - [ ] Create import UI component
-  - [ ] Test bulk import functionality
+- [x] Feature 3: Bulk Product Import via CSV
+  - [x] Create CSV upload endpoint
+  - [x] Parse and validate CSV data
+  - [x] Implement batch product creation
+  - [x] Add progress tracking for bulk imports
+  - [x] Create import UI component
+  - [x] Test bulk import functionality

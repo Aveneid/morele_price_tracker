@@ -21,6 +21,7 @@ import {
 import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
+import { parseCsv, validateCsvImport } from "./csvImport";
 
 // ============ PASSWORD UTILITIES ============
 
@@ -319,6 +320,91 @@ export const appRouter = router({
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to update alert threshold",
+          });
+        }
+      }),
+
+    // Import products from CSV
+    importFromCsv: publicProcedure
+      .input(
+        z.object({
+          csvContent: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          // Parse CSV
+          const rows = parseCsv(input.csvContent);
+
+          if (rows.length === 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "CSV file is empty or has no valid product rows",
+            });
+          }
+
+          // Validate all rows
+          const validationErrors = validateCsvImport(rows);
+          if (validationErrors.length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `CSV validation failed: ${validationErrors.map((e) => `Row ${e.row}: ${e.error}`).join("; ")}`,
+            });
+          }
+
+          // Import products
+          let successful = 0;
+          let failed = 0;
+          const errors: Array<{ row: number; error: string }> = [];
+
+          for (let i = 0; i < rows.length; i++) {
+            try {
+              const row = rows[i];
+              const input = row.url || row.productCode || "";
+
+              // Use existing add product logic
+              const result = await createProduct(
+                0, // userId: Public product
+                {
+                  url: row.url || "",
+                  productCode: row.productCode,
+                  checkIntervalMinutes: row.checkIntervalMinutes || 60,
+                  priceAlertThreshold: row.priceAlertThreshold || 10,
+                  name: row.url || row.productCode || "Imported Product",
+                }
+              );
+
+              if (result) {
+                // Schedule price check
+                scheduleProductPriceCheck(result);
+                successful++;
+              } else {
+                failed++;
+                errors.push({ row: i + 1, error: "Failed to create product" });
+              }
+            } catch (error: any) {
+              failed++;
+              errors.push({
+                row: i + 1,
+                error: error.message || "Unknown error",
+              });
+            }
+          }
+
+          return {
+            total: rows.length,
+            successful,
+            failed,
+            errors,
+            message: `Imported ${successful} of ${rows.length} products successfully`,
+          };
+        } catch (error: any) {
+          if (error.code) {
+            throw error;
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to import CSV",
           });
         }
       }),
