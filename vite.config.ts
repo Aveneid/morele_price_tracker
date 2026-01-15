@@ -9,6 +9,17 @@ import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime()];
 
+const getHmrConfig = () => {
+  if (process.env.VITE_HMR_HOST) {
+    return {
+      protocol: "wss",
+      host: process.env.VITE_HMR_HOST,
+      port: 443,
+    };
+  }
+  return undefined;
+};
+
 export default defineConfig({
   plugins,
   resolve: {
@@ -36,9 +47,10 @@ export default defineConfig({
       "localhost",
       "127.0.0.1",
     ],
+    hmr: getHmrConfig(),
     fs: {
       strict: true,
-      deny: ["**/.*"],
+      deny: ["**/..*"],
     },
   },
 });
