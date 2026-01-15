@@ -22,6 +22,15 @@ import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
+import {
+  getAllJobs,
+  getJobById,
+  createJob,
+  updateJob,
+  deleteJob,
+  getJobExecutions,
+} from "./db";
+import { scheduleJob, unscheduleJob, executeJob } from "./jobScheduler";
 
 // ============ PASSWORD UTILITIES ============
 
@@ -452,6 +461,125 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true };
     }),
+
+    // List all jobs
+    jobs: publicProcedure.query(async () => {
+      return getAllJobs();
+    }),
+
+    // Get job details with execution history
+    jobDetails: publicProcedure
+      .input(z.object({ jobId: z.number() }))
+      .query(async ({ input }) => {
+        const job = await getJobById(input.jobId);
+        if (!job) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Job not found",
+          });
+        }
+
+        const executions = await getJobExecutions(input.jobId, 50);
+        return { job, executions };
+      }),
+
+    // Create job
+    createJob: publicProcedure
+      .input(
+        z.object({
+          name: z.string(),
+          description: z.string().optional(),
+          jobType: z.enum(["price_check", "cleanup", "report", "custom"]),
+          cronExpression: z.string(),
+          isActive: z.boolean().default(true),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const job = await createJob(input);
+          if (job) {
+            scheduleJob(job);
+          }
+          return job;
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to create job",
+          });
+        }
+      }),
+
+    // Update job
+    updateJob: publicProcedure
+      .input(
+        z.object({
+          jobId: z.number(),
+          name: z.string().optional(),
+          description: z.string().optional(),
+          cronExpression: z.string().optional(),
+          isActive: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const { jobId, ...updates } = input;
+          const job = await updateJob(jobId, updates);
+
+          if (job) {
+            if (updates.isActive === false) {
+              unscheduleJob(jobId);
+            } else if (updates.isActive === true || updates.cronExpression) {
+              scheduleJob(job);
+            }
+          }
+
+          return job;
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to update job",
+          });
+        }
+      }),
+
+    // Delete job
+    deleteJob: publicProcedure
+      .input(z.object({ jobId: z.number() }))
+      .mutation(async ({ input }) => {
+        try {
+          unscheduleJob(input.jobId);
+          const success = await deleteJob(input.jobId);
+          return { success };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to delete job",
+          });
+        }
+      }),
+
+    // Execute job manually
+    executeJob: publicProcedure
+      .input(z.object({ jobId: z.number() }))
+      .mutation(async ({ input }) => {
+        try {
+          const job = await getJobById(input.jobId);
+          if (!job) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Job not found",
+            });
+          }
+
+          await executeJob(job);
+          return { success: true, message: "Job executed" };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to execute job",
+          });
+        }
+      })
   }),
 
   // ============ AUTHENTICATION ============

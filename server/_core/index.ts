@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { initializePriceTracking } from "../priceTracker";
 import { initializeNotificationServer } from "../notificationServer";
+import { initializeJobScheduler } from "../jobScheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -39,6 +40,8 @@ async function startServer() {
   initializeNotificationServer(server);
   // Initialize price tracking scheduler
   await initializePriceTracking();
+  // Initialize job scheduler
+  await initializeJobScheduler();
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API

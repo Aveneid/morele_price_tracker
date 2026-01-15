@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -80,3 +80,36 @@ export const adminUsers = mysqlTable("adminUsers", {
 
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type InsertAdminUser = typeof adminUsers.$inferInsert;
+
+// ============ JOB SCHEDULER ============
+
+export const jobs = mysqlTable("jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  jobType: mysqlEnum("jobType", ["price_check", "cleanup", "report", "custom"]).notNull(),
+  cronExpression: varchar("cronExpression", { length: 255 }).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  lastExecutedAt: timestamp("lastExecutedAt"),
+  nextExecutionAt: timestamp("nextExecutionAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Job = typeof jobs.$inferSelect;
+export type InsertJob = typeof jobs.$inferInsert;
+
+export const jobExecutions = mysqlTable("jobExecutions", {
+  id: int("id").autoincrement().primaryKey(),
+  jobId: int("jobId").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["pending", "running", "success", "failed"]).notNull(),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  duration: int("duration"),
+  result: text("result"),
+  logs: text("logs"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type JobExecution = typeof jobExecutions.$inferSelect;
+export type InsertJobExecution = typeof jobExecutions.$inferInsert;

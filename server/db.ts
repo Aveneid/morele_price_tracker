@@ -13,6 +13,12 @@ import {
   InsertSettings,
   adminUsers,
   AdminUser,
+  jobs,
+  Job,
+  InsertJob,
+  jobExecutions,
+  JobExecution,
+  InsertJobExecution,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -279,6 +285,116 @@ export async function getAdminByUsername(
     .select()
     .from(adminUsers)
     .where(eq(adminUsers.username, username))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+
+// ============ JOB SCHEDULER QUERIES ============
+
+export async function getAllJobs(): Promise<Job[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db.select().from(jobs).orderBy(desc(jobs.createdAt));
+}
+
+export async function getJobById(id: number): Promise<Job | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createJob(data: InsertJob): Promise<Job | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.insert(jobs).values(data).$returningId();
+  if (result.length === 0) return null;
+
+  const jobId = result[0].id;
+  const created = await db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function updateJob(
+  id: number,
+  data: Partial<InsertJob>
+): Promise<Job | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  await db.update(jobs).set(data).where(eq(jobs.id, id));
+
+  return getJobById(id);
+}
+
+export async function deleteJob(id: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  await db.delete(jobs).where(eq(jobs.id, id));
+  return true;
+}
+
+export async function getJobExecutions(
+  jobId: number,
+  limit: number = 50
+): Promise<JobExecution[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(jobExecutions)
+    .where(eq(jobExecutions.jobId, jobId))
+    .orderBy(desc(jobExecutions.createdAt))
+    .limit(limit);
+}
+
+export async function createJobExecution(
+  data: InsertJobExecution
+): Promise<JobExecution | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(jobExecutions)
+    .values(data)
+    .$returningId();
+  if (result.length === 0) return null;
+
+  const executionId = result[0].id;
+  const created = await db
+    .select()
+    .from(jobExecutions)
+    .where(eq(jobExecutions.id, executionId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function updateJobExecution(
+  id: number,
+  data: Partial<InsertJobExecution>
+): Promise<JobExecution | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  await db.update(jobExecutions).set(data).where(eq(jobExecutions.id, id));
+
+  const result = await db
+    .select()
+    .from(jobExecutions)
+    .where(eq(jobExecutions.id, id))
     .limit(1);
 
   return result.length > 0 ? result[0] : null;
