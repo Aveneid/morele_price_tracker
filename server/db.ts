@@ -123,14 +123,9 @@ export async function createProduct(
   const db = await getDb();
   if (!db) return null;
 
-  const values: any = { ...data };
-  if (userId !== null) {
-    values.userId = userId;
-  }
-  
   const result = await db
     .insert(products)
-    .values(values)
+    .values({ ...data, userId })
     .$returningId();
 
   if (result.length === 0) return null;
