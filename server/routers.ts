@@ -172,7 +172,7 @@ export const appRouter = router({
             ? input.input
             : `https://www.morele.net/search/?q=${input.input}`;
 
-          const newProduct = await createProduct(0, {
+          const newProduct = await createProduct(null, {
             name: scrapedData.name || "Unknown Product",
             url: productUrl,
             productCode: scrapedData.productCode || "",

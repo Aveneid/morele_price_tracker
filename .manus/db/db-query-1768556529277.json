@@ -1,0 +1,9 @@
+{
+  "query": "DROP TABLE IF EXISTS jobExecutions; DROP TABLE IF EXISTS jobs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sYD7pt8wPuFWH3.root --database Y9rYu3gSkPyNmxB5akedhP --execute DROP TABLE IF EXISTS jobExecutions; DROP TABLE IF EXISTS jobs;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 669
+}

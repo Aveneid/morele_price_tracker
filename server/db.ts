@@ -117,7 +117,7 @@ export async function getUserByOpenId(openId: string) {
 // ============ PRODUCT QUERIES ============
 
 export async function createProduct(
-  userId: number,
+  userId: number | null,
   data: Omit<InsertProduct, "userId">
 ): Promise<Product | null> {
   const db = await getDb();

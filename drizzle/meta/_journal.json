@@ -64,6 +64,13 @@
       "when": 1768470961733,
       "tag": "0008_abandoned_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1768556380178,
+      "tag": "0009_great_mantis",
+      "breakpoints": true
     }
   ]
 }

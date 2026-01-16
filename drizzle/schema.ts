@@ -27,7 +27,7 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const products = mysqlTable("products", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: int("userId").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   url: varchar("url", { length: 2048 }).notNull(),
   productCode: varchar("productCode", { length: 64 }),
@@ -58,7 +58,7 @@ export type InsertPriceHistory = typeof priceHistory.$inferInsert;
 
 export const settings = mysqlTable("settings", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  userId: int("userId").unique().references(() => users.id, { onDelete: "cascade" }),
   trackingIntervalMinutes: int("trackingIntervalMinutes").default(60).notNull(),
   priceDropAlertThreshold: int("priceDropAlertThreshold").default(10).notNull(), // percentage
   userEmail: varchar("userEmail", { length: 320 }), // Email for notifications
