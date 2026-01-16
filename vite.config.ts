@@ -9,11 +9,12 @@ import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime()];
 
+const hmrHost = process.env.VITE_HMR_HOST;
 const getHmrConfig = () => {
-  if (process.env.VITE_HMR_HOST) {
+  if (hmrHost) {
     return {
       protocol: "wss",
-      host: process.env.VITE_HMR_HOST,
+      host: hmrHost,
       port: 443,
     };
   }
