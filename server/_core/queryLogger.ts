@@ -1,8 +1,10 @@
 import { Logger } from "drizzle-orm/logger";
+import { broadcastSqlQuery } from "../debugBroadcaster";
 
 /**
  * Custom Drizzle ORM query logger that logs full SQL queries with parameters
  * Shows both raw parameters and the fully interpolated SQL query
+ * Also broadcasts to browser when debug mode is enabled
  */
 export class QueryLogger implements Logger {
   logQuery(query: string, params: unknown[]): void {
@@ -23,6 +25,13 @@ export class QueryLogger implements Logger {
     }
     
     console.log("=".repeat(100) + "\n");
+    
+    // Broadcast to browser debug console
+    try {
+      broadcastSqlQuery(query, params);
+    } catch (error) {
+      // Silently fail if broadcaster is not available
+    }
   }
 
   /**

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useDebugLogs } from "@/hooks/useDebugLogs";
 
 // Global debug logger
 if (typeof window !== 'undefined') {
@@ -29,6 +30,10 @@ export default function AdminSettings() {
     }
     return false;
   });
+  const [debugLogs, setDebugLogs] = useState<any[]>([]);
+  const { setDebugMode: setServerDebugMode } = useDebugLogs((log) => {
+    setDebugLogs((prev) => [...prev.slice(-99), log]); // Keep last 100 logs
+  });
 
   const { data: settings } = trpc.admin.getSettings.useQuery();
 
@@ -42,11 +47,19 @@ export default function AdminSettings() {
   const handleDebugModeToggle = (checked: boolean) => {
     setDebugMode(checked);
     localStorage.setItem('debugMode', checked.toString());
+    setServerDebugMode(checked);
     if (checked) {
       console.log('[DEBUG MODE ENABLED] Debug logging is now active');
+      toast.success('Debug mode enabled - check browser console for logs');
     } else {
       console.log('[DEBUG MODE DISABLED] Debug logging is now inactive');
+      toast.success('Debug mode disabled');
     }
+  };
+
+  const clearDebugLogs = () => {
+    setDebugLogs([]);
+    toast.success('Debug logs cleared');
   };
 
   const handleSaveSettings = async () => {
@@ -108,9 +121,55 @@ export default function AdminSettings() {
             </ul>
           </p>
           {debugMode && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-xs text-yellow-800">
-                ✓ Debug mode is <strong>ACTIVE</strong>. Open browser DevTools (F12) to view console logs.
+            <div className="mt-4">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Live Debug Logs ({debugLogs.length})</p>
+                  <p className="text-xs text-gray-600">Showing last 100 logs. Also check browser console (F12).</p>
+                </div>
+                <Button
+                  onClick={clearDebugLogs}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+              <div className="bg-gray-900 text-green-400 p-3 rounded font-mono text-xs max-h-80 overflow-y-auto border border-gray-700">
+                {debugLogs.length === 0 ? (
+                  <div className="text-gray-500">No debug logs yet. Perform actions to see logs here...</div>
+                ) : (
+                  debugLogs.map((log, idx) => (
+                    <div key={idx} className="mb-2 break-words whitespace-pre-wrap">
+                      <span className="text-blue-400">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                      {log.type === 'sql_query' ? (
+                        <>
+                          <span className="text-yellow-400"> [SQL]</span>
+                          <div className="ml-4 text-gray-300 mt-1">{log.query}</div>
+                          {log.params && log.params.length > 0 && (
+                            <div className="ml-4 text-gray-400 text-xs mt-1">
+                              Params: {JSON.stringify(log.params, null, 2)}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-cyan-400"> [{log.label}]</span>
+                          <span className="text-gray-300"> {typeof log.args === 'object' ? JSON.stringify(log.args, null, 2) : log.args}</span>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+          {debugMode && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+              <p className="text-xs text-green-800">
+                ✓ Debug mode is <strong>ACTIVE</strong>. SQL queries and debug logs are being captured above and in browser console.
               </p>
             </div>
           )}
