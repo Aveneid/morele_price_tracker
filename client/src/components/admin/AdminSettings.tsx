@@ -5,10 +5,30 @@ import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
+// Global debug logger
+if (typeof window !== 'undefined') {
+  (window as any).debugLog = (...args: any[]) => {
+    if (localStorage.getItem('debugMode') === 'true') {
+      console.log('[DEBUG]', ...args);
+    }
+  };
+  (window as any).debugError = (...args: any[]) => {
+    if (localStorage.getItem('debugMode') === 'true') {
+      console.error('[DEBUG ERROR]', ...args);
+    }
+  };
+}
+
 export default function AdminSettings() {
   const [trackingInterval, setTrackingInterval] = useState("60");
   const [alertThreshold, setAlertThreshold] = useState("10");
   const [isSaving, setIsSaving] = useState(false);
+  const [debugMode, setDebugMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('debugMode') === 'true';
+    }
+    return false;
+  });
 
   const { data: settings } = trpc.admin.getSettings.useQuery();
 
@@ -18,6 +38,16 @@ export default function AdminSettings() {
       setAlertThreshold(((settings.priceDropAlertThreshold || 0) / 100).toString());
     }
   }, [settings]);
+
+  const handleDebugModeToggle = (checked: boolean) => {
+    setDebugMode(checked);
+    localStorage.setItem('debugMode', checked.toString());
+    if (checked) {
+      console.log('[DEBUG MODE ENABLED] Debug logging is now active');
+    } else {
+      console.log('[DEBUG MODE DISABLED] Debug logging is now inactive');
+    }
+  };
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -49,6 +79,42 @@ export default function AdminSettings() {
       <div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Settings</h2>
         <p className="text-gray-600">Configure price tracking and alert settings</p>
+      </div>
+
+      {/* Debug Console */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Debug Console</h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="debugMode"
+              checked={debugMode}
+              onChange={(e) => handleDebugModeToggle(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <label htmlFor="debugMode" className="text-sm font-medium text-gray-700">
+              Enable Debug Logging
+            </label>
+          </div>
+          <p className="text-xs text-gray-600">
+            When enabled, detailed debug information will be logged to the browser console including:
+            <ul className="list-disc list-inside mt-2 ml-2 space-y-1">
+              <li>Function calls and execution flow</li>
+              <li>SQL queries and database operations</li>
+              <li>API request/response details</li>
+              <li>Error stack traces</li>
+              <li>Performance metrics</li>
+            </ul>
+          </p>
+          {debugMode && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-xs text-yellow-800">
+                ✓ Debug mode is <strong>ACTIVE</strong>. Open browser DevTools (F12) to view console logs.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tracking Settings */}

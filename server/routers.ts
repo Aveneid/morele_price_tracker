@@ -22,6 +22,7 @@ import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
+import { debugLog, debugError, debugTable } from "./_core/debugLogger";
 import {
   getAllJobs,
   getJobById,
@@ -144,8 +145,11 @@ export const appRouter = router({
       .input(z.object({ input: z.string() }))
       .mutation(async ({ input }) => {
         try {
+          debugLog('ADD_PRODUCT', 'Starting product addition with input:', input.input);
+          
           // Scrape product
           const scrapedData = await scrapeProduct(input.input);
+          debugLog('ADD_PRODUCT', 'Scraped data:', scrapedData);
 
           if (!scrapedData) {
             throw new TRPCError({
@@ -172,6 +176,18 @@ export const appRouter = router({
             ? input.input
             : `https://www.morele.net/search/?q=${input.input}`;
 
+          debugLog('ADD_PRODUCT', 'Creating product with URL:', productUrl);
+          debugLog('ADD_PRODUCT', 'Product data:', {
+            name: scrapedData.name || "Unknown Product",
+            url: productUrl,
+            productCode: scrapedData.productCode || "",
+            category: scrapedData.category || null,
+            imageUrl: scrapedData.imageUrl || null,
+            currentPrice: scrapedData.price || 0,
+            previousPrice: scrapedData.price || 0,
+            lastCheckedAt: new Date(),
+          });
+
           const newProduct = await createProduct(null, {
             name: scrapedData.name || "Unknown Product",
             url: productUrl,
@@ -184,11 +200,14 @@ export const appRouter = router({
           });
 
           if (!newProduct) {
+            debugError('ADD_PRODUCT', 'Failed to create product - returned null');
             throw new TRPCError({
               code: "INTERNAL_SERVER_ERROR",
               message: "Failed to save product to database",
             });
           }
+
+          debugLog('ADD_PRODUCT', 'Product created successfully:', newProduct);
 
           // Record initial price
           if (scrapedData.price) {
@@ -201,6 +220,7 @@ export const appRouter = router({
             product: newProduct,
           };
         } catch (error: any) {
+          debugError('ADD_PRODUCT', 'Error during product addition:', error);
           if (error.code) {
             throw error;
           }
@@ -461,6 +481,19 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true };
     }),
+
+    // Toggle debug mode
+    toggleDebugMode: publicProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .mutation(async ({ input }) => {
+        process.env.DEBUG_MODE = input.enabled ? 'true' : 'false';
+        debugLog('ADMIN', 'Debug mode toggled:', input.enabled);
+        return {
+          success: true,
+          debugMode: input.enabled,
+          message: input.enabled ? 'Debug mode enabled' : 'Debug mode disabled',
+        };
+      }),
 
     // List all jobs
     jobs: publicProcedure.query(async () => {

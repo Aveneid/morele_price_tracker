@@ -1,5 +1,6 @@
 import { eq, and, desc, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { sql } from "drizzle-orm";
 import {
   InsertUser,
   users,
@@ -21,6 +22,8 @@ import {
   InsertJobExecution,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { debugLog, debugError } from "./_core/debugLogger";
+import { QueryLogger } from "./_core/queryLogger";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -28,7 +31,9 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(process.env.DATABASE_URL, {
+        logger: new QueryLogger(), // Enable detailed query logging
+      });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -121,23 +126,46 @@ export async function createProduct(
   data: Omit<InsertProduct, "userId">
 ): Promise<Product | null> {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) {
+    debugError('CREATE_PRODUCT', 'Database not available');
+    return null;
+  }
 
-  const result = await db
-    .insert(products)
-    .values({ ...data, userId })
-    .$returningId();
+  try {
+    debugLog('CREATE_PRODUCT', 'Creating product with userId:', userId);
 
-  if (result.length === 0) return null;
+    // Build the insert values object, explicitly including userId
+    const insertValues: any = { ...data, userId };
+    debugLog('CREATE_PRODUCT', 'Insert values prepared');
 
-  const productId = result[0].id;
-  const created = await db
-    .select()
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
+    const result = await db
+      .insert(products)
+      .values(insertValues)
+      .$returningId();
 
-  return created.length > 0 ? created[0] : null;
+    debugLog('CREATE_PRODUCT', 'Insert completed, result length:', result.length);
+
+    if (result.length === 0) {
+      debugError('CREATE_PRODUCT', 'No result returned from insert');
+      return null;
+    }
+
+    const productId = result[0].id;
+    debugLog('CREATE_PRODUCT', 'Created product with ID:', productId);
+
+    const created = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    debugLog('CREATE_PRODUCT', 'Select completed, found:', created.length, 'products');
+
+    return created.length > 0 ? created[0] : null;
+  } catch (error) {
+    debugError('CREATE_PRODUCT', 'Error creating product:', error);
+    throw error;
+  }
 }
 
 export async function getProductById(id: number): Promise<Product | null> {

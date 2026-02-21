@@ -1,5 +1,5 @@
-import "dotenv/config";
 import express from "express";
+import type { Request, Response } from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -33,9 +33,31 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  
+  // Middleware to handle raw body for tRPC routes
+  app.use((req: Request, res: Response, next: express.NextFunction) => {
+    if (req.path.startsWith("/api/trpc")) {
+      let rawBody = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk) => {
+        rawBody += chunk;
+      });
+      req.on("end", () => {
+        try {
+          if (rawBody) {
+            (req as any).body = JSON.parse(rawBody);
+          }
+        } catch (e) {
+          (req as any).body = undefined;
+        }
+        next();
+      });
+    } else {
+      // For non-tRPC routes, use express.json()
+      express.json({ limit: "50mb" })(req, res, next);
+    }
+  });
+  
   // Initialize WebSocket notification server
   initializeNotificationServer(server);
   // Initialize price tracking scheduler
@@ -44,31 +66,33 @@ async function startServer() {
   await initializeJobScheduler();
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  
   // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
-      createContext,
+      createContext: async (opts) => createContext(opts),
     })
   );
+  
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
+    const vite = await setupVite(app, server);
+    console.log("[OAuth] Initialized with baseURL:", process.env.OAUTH_SERVER_URL);
   } else {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
-
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
+  const port = await findAvailablePort();
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  return server;
 }
 
-startServer().catch(console.error);
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

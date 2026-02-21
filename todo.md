@@ -150,3 +150,10 @@
   - [x] Implement job execution tracking and logging
   - [x] Add job creation/edit/delete/execute endpoints
   - [x] Test job scheduler functionality (8 tests passing)
+
+
+## Current Session: Debug Console & Bug Fixes
+- [ ] Add debug console checkbox to admin panel
+- [ ] Implement debug logging for function calls and SQL queries
+- [ ] Fix userId missing issue in product insertion
+- [ ] Test debug logging and product addition
