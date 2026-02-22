@@ -1,5 +1,5 @@
 import { Logger } from "drizzle-orm/logger";
-import { broadcastSqlQuery } from "../debugBroadcaster";
+import { addSqlQuery } from "../debugLogStore";
 
 /**
  * Custom Drizzle ORM query logger that logs full SQL queries with parameters
@@ -26,11 +26,11 @@ export class QueryLogger implements Logger {
     
     console.log("=".repeat(100) + "\n");
     
-    // Broadcast to browser debug console
+    // Store query for retrieval via tRPC
     try {
-      broadcastSqlQuery(query, params);
+      addSqlQuery(query, params);
     } catch (error) {
-      // Silently fail if broadcaster is not available
+      // Silently fail if store is not available
     }
   }
 

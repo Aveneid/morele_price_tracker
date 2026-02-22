@@ -10,7 +10,6 @@ import { serveStatic, setupVite } from "./vite";
 import { initializePriceTracking } from "../priceTracker";
 import { initializeNotificationServer } from "../notificationServer";
 import { initializeJobScheduler } from "../jobScheduler";
-import { initializeDebugBroadcaster } from "../debugBroadcaster";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -61,8 +60,6 @@ async function startServer() {
   
   // Initialize WebSocket notification server
   initializeNotificationServer(server);
-  // Initialize debug broadcaster
-  initializeDebugBroadcaster(server);
   // Initialize price tracking scheduler
   await initializePriceTracking();
   // Initialize job scheduler
