@@ -1,41 +1,14 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
+
+const Loader = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 24, height: 24, animation: 'spin 1s linear infinite'}}><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>;
+const ExternalLink = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16, marginRight: 8}}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>;
+const RefreshCw = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16, marginRight: 8}}><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path></svg>;
 
 interface ProductDetailModalProps {
   productId: number;
   isOpen: boolean;
   onClose: () => void;
 }
-
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-        <p className="font-semibold text-gray-800">{data.date}</p>
-        <p className="text-blue-600 font-bold">{data.price.toFixed(2)} zł</p>
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function ProductDetailModal({
   productId,
@@ -52,10 +25,10 @@ export default function ProductDetailModal({
 
   const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
     onSuccess: () => {
-      toast.success("Price check requested!");
+      // Toast handled by parent component
     },
     onError: (err) => {
-      toast.error(err.message || "Failed to request price check");
+      // Error handled by parent component
     },
   });
 
@@ -80,208 +53,141 @@ export default function ProductDetailModal({
     return Math.ceil(15 - minutesSinceLastCheck);
   };
 
-  const chartData = (priceHistory || [])
-    .slice()
-    .reverse()
-    .map((entry: any) => ({
-      date: new Date(entry.recordedAt).toLocaleDateString("pl-PL"),
-      price: entry.price / 100,
-      timestamp: entry.recordedAt,
-    }));
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50}}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div style={{backgroundColor: 'white', borderRadius: 8, maxWidth: 768, maxHeight: '90vh', overflowY: 'auto', position: 'relative', width: '90%'}}>
+        <button onClick={onClose} style={{position: 'absolute', top: 16, right: 16, backgroundColor: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280'}}>×</button>
+
         {productLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256}}>
+            <Loader />
           </div>
         ) : product ? (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-xl">{product.name}</DialogTitle>
-            </DialogHeader>
+          <div style={{padding: '2rem'}}>
+            <h2 style={{fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem'}}>{product.name}</h2>
 
-            <div className="space-y-6">
+            <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
               {/* Product Image and Price Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem'}}>
                 {/* Product Image */}
-                <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg p-4 min-h-[300px]">
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb', borderRadius: 8, padding: '1rem', minHeight: 300}}>
                   {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="max-w-full max-h-[300px] object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
+                    <img src={product.imageUrl} alt={product.name} style={{maxWidth: '100%', maxHeight: 300, objectFit: 'contain'}} onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }} />
                   ) : (
-                    <div className="text-center text-gray-400">
+                    <div style={{textAlign: 'center', color: '#9ca3af'}}>
                       <p>No image available</p>
                     </div>
                   )}
                 </div>
 
                 {/* Price Information */}
-                <div className="flex flex-col justify-center space-y-4">
+                <div style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem'}}>
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase">
-                      Current Price
-                    </p>
-                    <p className="text-4xl font-bold text-gray-900 mt-2">
-                      {formatPrice(product.currentPrice)}
-                    </p>
+                    <p style={{fontSize: '0.75rem', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase'}}>Current Price</p>
+                    <p style={{fontSize: '2.25rem', fontWeight: 'bold', color: '#111827', marginTop: '0.5rem'}}>{formatPrice(product.currentPrice)}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
                     <div>
-                      <p className="text-xs text-gray-600 font-semibold uppercase">
-                        Previous Price
-                      </p>
-                      <p className="text-lg font-bold text-gray-700 mt-1">
-                        {formatPrice(product.previousPrice)}
-                      </p>
+                      <p style={{fontSize: '0.75rem', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase'}}>Previous Price</p>
+                      <p style={{fontSize: '1.125rem', fontWeight: 'bold', color: '#374151', marginTop: '0.25rem'}}>{formatPrice(product.previousPrice)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 font-semibold uppercase">
-                        Change
-                      </p>
-                      <p
-                        className={`text-lg font-bold mt-1 ${
-                          product.priceChangePercent === null ||
-                          product.priceChangePercent === 0
-                            ? "text-gray-600"
-                            : product.priceChangePercent < 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {product.priceChangePercent === null
-                          ? "N/A"
-                          : `${(product.priceChangePercent / 100).toFixed(2)}%`}
+                      <p style={{fontSize: '0.75rem', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase'}}>Change</p>
+                      <p style={{fontSize: '1.125rem', fontWeight: 'bold', marginTop: '0.25rem', color: product.priceChangePercent === null || product.priceChangePercent === 0 ? '#4b5563' : product.priceChangePercent < 0 ? '#16a34a' : '#dc2626'}}>
+                        {product.priceChangePercent === null ? "N/A" : `${(product.priceChangePercent / 100).toFixed(2)}%`}
                       </p>
                     </div>
                   </div>
 
                   {product.category && (
                     <div>
-                      <p className="text-xs text-gray-600 font-semibold uppercase">
-                        Category
-                      </p>
-                      <p className="text-lg font-bold text-gray-700 mt-1">
-                        {product.category}
-                      </p>
+                      <p style={{fontSize: '0.75rem', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase'}}>Category</p>
+                      <p style={{fontSize: '1.125rem', fontWeight: 'bold', color: '#374151', marginTop: '0.25rem'}}>{product.category}</p>
                     </div>
                   )}
 
                   {canRequestPriceCheck() ? (
-                    <Button
-                      onClick={() =>
-                        priceCheckMutation.mutate({ productId })
-                      }
-                      disabled={priceCheckMutation.isPending}
-                      className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                    >
+                    <button onClick={() => priceCheckMutation.mutate({ productId })} disabled={priceCheckMutation.isPending} style={{width: '100%', marginTop: '1rem', backgroundColor: '#16a34a', color: 'white', padding: '0.5rem 1rem', borderRadius: 6, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: priceCheckMutation.isPending ? 0.7 : 1}}>
                       {priceCheckMutation.isPending ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <Loader />
                           Checking...
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="w-4 h-4 mr-2" />
+                          <RefreshCw />
                           Request Price Check
                         </>
                       )}
-                    </Button>
+                    </button>
                   ) : (
-                    <div className="w-full mt-4 p-3 bg-gray-100 rounded text-sm text-gray-600 text-center">
+                    <div style={{width: '100%', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: 6, fontSize: '0.875rem', color: '#4b5563', textAlign: 'center'}}>
                       Next check available in {getMinutesUntilNextCheck()} min
                     </div>
                   )}
 
-                  <Button
-                    onClick={() => window.open(product.url, "_blank")}
-                    className="w-full mt-2 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
+                  <button onClick={() => window.open(product.url, "_blank")} style={{width: '100%', marginTop: '0.5rem', backgroundColor: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: 6, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                    <ExternalLink />
                     View on morele.net
-                  </Button>
+                  </button>
                 </div>
               </div>
 
-              {/* Price History Chart */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Price History (Last 30 Days)
-                </h3>
+              {/* Price History */}
+              <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem'}}>
+                <h3 style={{fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem'}}>Price History (Last 30 Days)</h3>
                 {historyLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  <div style={{display: 'flex', justifyContent: 'center', padding: '2rem'}}>
+                    <Loader />
                   </div>
-                ) : chartData.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                ) : !priceHistory || priceHistory.length === 0 ? (
+                  <div style={{textAlign: 'center', padding: '2rem', color: '#6b7280'}}>
                     No price history available yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Line
-                        type="monotone"
-                        dataKey="price"
-                        stroke="#3b82f6"
-                        strokeWidth={2}
-                        dot={{ fill: "#3b82f6", r: 3 }}
-                        activeDot={{ r: 5 }}
-                        name="Price (zł)"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <svg viewBox="0 0 600 250" style={{width: '100%', height: 'auto'}}>
+                    {/* Simple line chart */}
+                    {priceHistory.map((entry: any, idx: number) => {
+                      const nextEntry = priceHistory[idx + 1];
+                      if (!nextEntry) return null;
+                      const x1 = (idx / priceHistory.length) * 600;
+                      const x2 = ((idx + 1) / priceHistory.length) * 600;
+                      const minPrice = Math.min(...priceHistory.map((e: any) => e.price));
+                      const maxPrice = Math.max(...priceHistory.map((e: any) => e.price));
+                      const range = maxPrice - minPrice || 1;
+                      const y1 = 250 - ((entry.price - minPrice) / range) * 200;
+                      const y2 = 250 - ((nextEntry.price - minPrice) / range) * 200;
+                      return <line key={idx} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3b82f6" strokeWidth="2" />;
+                    })}
+                  </svg>
                 )}
               </div>
 
               {/* Product Details */}
-              <div className="border-t pt-4 text-sm text-gray-600 space-y-2">
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Product Code:</strong>
-                  </span>
+              <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '1rem', fontSize: '0.875rem', color: '#4b5563', display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span><strong>Product Code:</strong></span>
                   <span>{product.productCode || "N/A"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Last Checked:</strong>
-                  </span>
-                  <span>
-                    {product.lastCheckedAt
-                      ? new Date(product.lastCheckedAt).toLocaleString("pl-PL")
-                      : "Never"}
-                  </span>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span><strong>Last Checked:</strong></span>
+                  <span>{product.lastCheckedAt ? new Date(product.lastCheckedAt).toLocaleString("pl-PL") : "Never"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Added:</strong>
-                  </span>
-                  <span>
-                    {new Date(product.createdAt).toLocaleString("pl-PL")}
-                  </span>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span><strong>Added:</strong></span>
+                  <span>{new Date(product.createdAt).toLocaleString("pl-PL")}</span>
                 </div>
               </div>
             </div>
-          </>
+          </div>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

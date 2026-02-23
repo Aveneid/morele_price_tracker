@@ -1,26 +1,31 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { Loader2, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+
+const AlertCircle = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16}}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
+const Loader = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16, marginRight: 8, animation: 'spin 1s linear infinite'}}><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>;
 
 export default function AdminLogin() {
   const [, navigate] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [toasts, setToasts] = useState<any[]>([]);
+
+  const showToast = (message: string, type: "success" | "error") => {
+    const id = Math.random().toString(36);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  };
 
   const loginMutation = trpc.admin.login.useMutation({
     onSuccess: () => {
-      toast.success("Login successful!");
+      showToast("Login successful!", "success");
       navigate("/admin");
     },
     onError: (err) => {
       setError(err.message || "Login failed");
-      toast.error("Login failed");
+      showToast("Login failed", "error");
     },
   });
 
@@ -37,64 +42,58 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">Admin Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <div style={{minHeight: '100vh', background: 'linear-gradient(to bottom right, #eff6ff, #e0e7ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'}}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      {/* Toasts */}
+      <div style={{position: 'fixed', bottom: 20, right: 20, zIndex: 9999}}>
+        {toasts.map(t => (
+          <div key={t.id} style={{backgroundColor: t.type === 'success' ? '#10b981' : '#ef4444', color: 'white', padding: 16, borderRadius: 8, marginBottom: 12}}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+
+      <div style={{width: '100%', maxWidth: '28rem', backgroundColor: 'white', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'}}>
+        <div style={{padding: '2rem', borderBottom: '1px solid #e5e7eb'}}>
+          <h1 style={{textAlign: 'center', fontSize: '1.875rem', fontWeight: 600, margin: 0}}>Admin Login</h1>
+        </div>
+        <div style={{padding: '2rem'}}>
+          <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                <AlertCircle className="w-4 h-4" />
+              <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4, color: '#b91c1c', fontSize: '0.875rem'}}>
+                <AlertCircle />
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label style={{display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem'}}>
                 Username
               </label>
-              <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                disabled={loginMutation.isPending}
-                autoFocus
-              />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" disabled={loginMutation.isPending} autoFocus style={{width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.875rem', opacity: loginMutation.isPending ? 0.6 : 1}} />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label style={{display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem'}}>
                 Password
               </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                disabled={loginMutation.isPending}
-              />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" disabled={loginMutation.isPending} style={{width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.875rem', opacity: loginMutation.isPending ? 0.6 : 1}} />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={loginMutation.isPending}
-            >
+            <button type="submit" disabled={loginMutation.isPending} style={{width: '100%', backgroundColor: '#2563eb', color: 'white', padding: '0.5rem', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loginMutation.isPending ? 0.7 : 1}}>
               {loginMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader />
                   Logging in...
                 </>
               ) : (
                 "Login"
               )}
-            </Button>
+            </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

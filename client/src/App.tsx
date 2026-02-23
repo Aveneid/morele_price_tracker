@@ -1,6 +1,4 @@
 import { useEffect } from "react";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -32,10 +30,7 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="light">
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <Router />
     </ThemeProvider>
   );
 }

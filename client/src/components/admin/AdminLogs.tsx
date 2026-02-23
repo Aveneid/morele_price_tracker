@@ -1,7 +1,7 @@
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+const CheckCircle = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16, color: '#16a34a'}}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
+const AlertCircle = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 16, height: 16, color: '#dc2626'}}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
 
 export default function AdminLogs() {
-  // Placeholder for logs viewer
   const logs = [
     {
       id: 1,
@@ -22,63 +22,44 @@ export default function AdminLogs() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Scraping Logs</h2>
-        <p className="text-gray-600">
-          View price scraping history and error details
-        </p>
+        <h2 style={{fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem'}}>Scraping Logs</h2>
+        <p style={{color: '#4b5563'}}>View price scraping history and error details</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+      <div style={{backgroundColor: 'white', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden'}}>
+        <div style={{overflowX: 'auto'}}>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead style={{backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb'}}>
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Timestamp
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Message
-                </th>
+                <th style={{padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#374151'}}>Timestamp</th>
+                <th style={{padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#374151'}}>Product</th>
+                <th style={{padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#374151'}}>Status</th>
+                <th style={{padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#374151'}}>Message</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr
-                  key={log.id}
-                  className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {log.timestamp.toLocaleString("pl-PL")}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                    {log.productName}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center gap-2">
+                <tr key={log.id} style={{borderBottom: '1px solid #e5e7eb', transition: 'background-color 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <td style={{padding: '1rem 1.5rem', fontSize: '0.875rem', color: '#4b5563'}}>{log.timestamp.toLocaleString("pl-PL")}</td>
+                  <td style={{padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 500, color: '#111827'}}>{log.productName}</td>
+                  <td style={{padding: '1rem 1.5rem', fontSize: '0.875rem'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                       {log.status === "success" ? (
                         <>
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-green-600 font-medium">Success</span>
+                          <CheckCircle />
+                          <span style={{color: '#16a34a', fontWeight: 500}}>Success</span>
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-4 h-4 text-red-600" />
-                          <span className="text-red-600 font-medium">Error</span>
+                          <AlertCircle />
+                          <span style={{color: '#dc2626', fontWeight: 500}}>Error</span>
                         </>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {log.message}
-                  </td>
+                  <td style={{padding: '1rem 1.5rem', fontSize: '0.875rem', color: '#4b5563'}}>{log.message}</td>
                 </tr>
               ))}
             </tbody>
@@ -86,11 +67,9 @@ export default function AdminLogs() {
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          <strong>Note:</strong> Detailed logs are available for debugging purposes.
-          For the admin user sigarencja@gmail.com, full error details are logged to
-          the browser console.
+      <div style={{backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '1rem'}}>
+        <p style={{fontSize: '0.875rem', color: '#92400e', margin: 0}}>
+          <strong>Note:</strong> Detailed logs are available for debugging purposes. For the admin user sigarencja@gmail.com, full error details are logged to the browser console.
         </p>
       </div>
     </div>
