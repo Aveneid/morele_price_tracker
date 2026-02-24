@@ -195,9 +195,6 @@ export const appRouter = router({
             productCode: scrapedData.productCode || "",
             category: scrapedData.category || null,
             imageUrl: scrapedData.imageUrl || null,
-            currentPrice: scrapedData.price || 0,
-            previousPrice: scrapedData.price || 0,
-            lastCheckedAt: new Date(),
           });
 
           if (!newProduct) {
@@ -396,8 +393,6 @@ export const appRouter = router({
               const result = await createProduct({
                 url: row.url || "",
                 productCode: row.productCode,
-                checkIntervalMinutes: row.checkIntervalMinutes || 60,
-                priceAlertThreshold: row.priceAlertThreshold || 10,
                 name: row.url || row.productCode || "Imported Product",
               });
 
