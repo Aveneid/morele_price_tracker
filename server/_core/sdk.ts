@@ -280,13 +280,13 @@ class SDKServer {
     }
 
     const sessionUserId = session.openId;
-    const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
+        const signedInAt = new Date();
         await db.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || null,
@@ -305,10 +305,16 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // Only update lastSignedIn if more than 1 hour has passed
+    const lastSignedInTime = user.lastSignedIn ? new Date(user.lastSignedIn).getTime() : 0;
+    const now = Date.now();
+    const hourInMs = 60 * 60 * 1000;
+    if (now - lastSignedInTime > hourInMs) {
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: new Date(),
+      });
+    }
 
     return user;
   }
