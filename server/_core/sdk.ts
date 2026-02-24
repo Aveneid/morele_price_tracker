@@ -280,7 +280,15 @@ class SDKServer {
     }
 
     const sessionUserId = session.openId;
-    let user = await db.getUserByOpenId(sessionUserId);
+    
+    // Check cache first to avoid database query on every request
+    let user = getCachedUser(sessionUserId);
+    if (!user) {
+      user = await db.getUserByOpenId(sessionUserId);
+      if (user) {
+        setCachedUser(user);
+      }
+    }
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
@@ -292,9 +300,12 @@ class SDKServer {
           name: userInfo.name || null,
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
+          lastSignedIn: new Date(),
         });
         user = await db.getUserByOpenId(userInfo.openId);
+        if (user) {
+          setCachedUser(user);
+        }
       } catch (error) {
         console.error("[Auth] Failed to sync user from OAuth:", error);
         throw ForbiddenError("Failed to sync user info");
@@ -310,10 +321,12 @@ class SDKServer {
     const now = Date.now();
     const hourInMs = 60 * 60 * 1000;
     if (now - lastSignedInTime > hourInMs) {
+      const updatedUser = { ...user, lastSignedIn: new Date() };
       await db.upsertUser({
         openId: user.openId,
-        lastSignedIn: new Date(),
+        lastSignedIn: updatedUser.lastSignedIn,
       });
+      setCachedUser(updatedUser);
     }
 
     return user;
@@ -321,3 +334,24 @@ class SDKServer {
 }
 
 export const sdk = new SDKServer();
+
+// Simple in-memory cache for users to avoid database queries on every request
+const userCache = new Map<string, { user: User; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function getCachedUser(openId: string): User | null {
+  const cached = userCache.get(openId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.user;
+  }
+  userCache.delete(openId);
+  return null;
+}
+
+export function setCachedUser(user: User): void {
+  userCache.set(user.openId, { user, timestamp: Date.now() });
+}
+
+export function clearUserCache(openId: string): void {
+  userCache.delete(openId);
+}
