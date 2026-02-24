@@ -122,8 +122,7 @@ export async function getUserByOpenId(openId: string) {
 // ============ PRODUCT QUERIES ============
 
 export async function createProduct(
-  userId: number | null,
-  data: Omit<InsertProduct, "userId">
+  data: Omit<InsertProduct, "userId" | "id">
 ): Promise<Product | null> {
   const db = await getDb();
   if (!db) {
@@ -132,10 +131,10 @@ export async function createProduct(
   }
 
   try {
-    debugLog('CREATE_PRODUCT', 'Creating product with userId:', userId);
+    debugLog('CREATE_PRODUCT', 'Creating product');
 
-    // Build the insert values object, explicitly including userId
-    const insertValues: any = { ...data, userId };
+    // Build the insert values object
+    const insertValues: any = { ...data };
     debugLog('CREATE_PRODUCT', 'Insert values prepared');
 
     const result = await db

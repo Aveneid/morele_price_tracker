@@ -71,6 +71,20 @@
       "when": 1768556380178,
       "tag": "0009_great_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771919798965,
+      "tag": "0010_opposite_puff_adder",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771919845444,
+      "tag": "0011_far_swarm",
+      "breakpoints": true
     }
   ]
 }

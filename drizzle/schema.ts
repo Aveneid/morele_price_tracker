@@ -27,17 +27,16 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const products = mysqlTable("products", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   url: varchar("url", { length: 2048 }).notNull(),
   productCode: varchar("productCode", { length: 64 }),
   imageUrl: text("imageUrl"),
-  category: varchar("category", { length: 255 }), // Product category scraped from breadcrumb
-  currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
+  category: varchar("category", { length: 255 }),
+  currentPrice: int("currentPrice"),
   previousPrice: int("previousPrice"),
-  priceChangePercent: int("priceChangePercent").default(0).notNull(), // Store as percentage * 100 (e.g., -10.5% = -1050)
-  checkIntervalMinutes: int("checkIntervalMinutes").default(60).notNull(), // Per-product check interval in minutes
-  priceAlertThreshold: int("priceAlertThreshold").default(10).notNull(), // Per-product alert threshold in percentage
+  priceChangePercent: int("priceChangePercent").default(0).notNull(),
+  checkIntervalMinutes: int("checkIntervalMinutes").default(60).notNull(),
+  priceAlertThreshold: int("priceAlertThreshold").default(10).notNull(),
   lastCheckedAt: timestamp("lastCheckedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import {
   getAllProducts,
   getProductById,
@@ -142,9 +142,9 @@ export const appRouter = router({
       }),
 
     // Add product (public access with duplicate prevention)
-    add: publicProcedure
+    add: protectedProcedure
       .input(z.object({ input: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         try {
           debugLog('ADD_PRODUCT', 'Starting product addition with input:', input.input);
           
@@ -189,7 +189,7 @@ export const appRouter = router({
             lastCheckedAt: new Date(),
           });
 
-          const newProduct = await createProduct(null, {
+          const newProduct = await createProduct({
             name: scrapedData.name || "Unknown Product",
             url: productUrl,
             productCode: scrapedData.productCode || "",
@@ -393,16 +393,13 @@ export const appRouter = router({
               const input = row.url || row.productCode || "";
 
               // Use existing add product logic
-              const result = await createProduct(
-                0, // userId: Public product
-                {
-                  url: row.url || "",
-                  productCode: row.productCode,
-                  checkIntervalMinutes: row.checkIntervalMinutes || 60,
-                  priceAlertThreshold: row.priceAlertThreshold || 10,
-                  name: row.url || row.productCode || "Imported Product",
-                }
-              );
+              const result = await createProduct({
+                url: row.url || "",
+                productCode: row.productCode,
+                checkIntervalMinutes: row.checkIntervalMinutes || 60,
+                priceAlertThreshold: row.priceAlertThreshold || 10,
+                name: row.url || row.productCode || "Imported Product",
+              });
 
               if (result) {
                 // Schedule price check
