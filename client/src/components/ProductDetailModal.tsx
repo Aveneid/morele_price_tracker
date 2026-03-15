@@ -151,20 +151,59 @@ export default function ProductDetailModal({
                     No price history available yet
                   </div>
                 ) : (
-                  <svg viewBox="0 0 600 250" style={{width: '100%', height: 'auto'}}>
-                    {/* Simple line chart */}
-                    {priceHistory.map((entry: any, idx: number) => {
-                      const nextEntry = priceHistory[idx + 1];
-                      if (!nextEntry) return null;
-                      const x1 = (idx / priceHistory.length) * 600;
-                      const x2 = ((idx + 1) / priceHistory.length) * 600;
+                  <svg viewBox="0 0 800 300" style={{width: '100%', height: 'auto', border: '1px solid #e5e7eb', backgroundColor: '#ffffff'}}>
+                    {(() => {
                       const minPrice = Math.min(...priceHistory.map((e: any) => e.price));
                       const maxPrice = Math.max(...priceHistory.map((e: any) => e.price));
                       const range = maxPrice - minPrice || 1;
-                      const y1 = 250 - ((entry.price - minPrice) / range) * 200;
-                      const y2 = 250 - ((nextEntry.price - minPrice) / range) * 200;
-                      return <line key={idx} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3b82f6" strokeWidth="2" />;
-                    })}
+                      const padding = {left: 60, right: 20, top: 20, bottom: 50};
+                      const chartWidth = 800 - padding.left - padding.right;
+                      const chartHeight = 300 - padding.top - padding.bottom;
+
+                      return (
+                        <g>
+                          {/* Grid lines and Y-axis labels */}
+                          {Array.from({length: 5}).map((_, i) => {
+                            const ratio = i / 4;
+                            const y = padding.top + (1 - ratio) * chartHeight;
+                            const price = minPrice + ratio * range;
+                            return (
+                              <g key={`grid-${i}`}>
+                                <line x1={padding.left} y1={y} x2={800 - padding.right} y2={y} stroke="#f0f0f0" strokeWidth="1" />
+                                <text x={padding.left - 10} y={y + 4} fontSize="12" fill="#666" textAnchor="end">{(price / 100).toFixed(0)} zł</text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Y-axis */}
+                          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={300 - padding.bottom} stroke="#333" strokeWidth="2" />
+                          
+                          {/* X-axis */}
+                          <line x1={padding.left} y1={300 - padding.bottom} x2={800 - padding.right} y2={300 - padding.bottom} stroke="#333" strokeWidth="2" />
+
+                          {/* Chart line */}
+                          <polyline
+                            points={priceHistory.map((entry: any, idx: number) => {
+                              const x = padding.left + (idx / (priceHistory.length - 1 || 1)) * chartWidth;
+                              const y = padding.top + (1 - (entry.price - minPrice) / range) * chartHeight;
+                              return `${x},${y}`;
+                            }).join(' ')}
+                            fill="none"
+                            stroke="#3b82f6"
+                            strokeWidth="2"
+                          />
+
+                          {/* X-axis date labels */}
+                          {priceHistory.map((entry: any, idx: number) => {
+                            const step = Math.ceil(priceHistory.length / 6);
+                            if (idx % step !== 0 && idx !== priceHistory.length - 1) return null;
+                            const x = padding.left + (idx / (priceHistory.length - 1 || 1)) * chartWidth;
+                            const date = new Date(entry.recordedAt).toLocaleDateString('pl-PL', {month: 'short', day: 'numeric'});
+                            return <text key={`date-${idx}`} x={x} y={300 - padding.bottom + 20} fontSize="12" fill="#666" textAnchor="middle">{date}</text>;
+                          })}
+                        </g>
+                      );
+                    })()}
                   </svg>
                 )}
               </div>
