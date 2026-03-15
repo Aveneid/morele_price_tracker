@@ -23,7 +23,6 @@ import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
 import { debugLog, debugError, debugTable } from "./_core/debugLogger";
-import { getDebugLogs, clearDebugLogs } from "./debugLogStore";
 import {
   getAllJobs,
   getJobById,
@@ -628,20 +627,6 @@ export const appRouter = router({
 
   // ============ SYSTEM ROUTER ============
   system: systemRouter,
-
-  // ============ DEBUG LOGS ============
-  debug: router({
-    getLogs: publicProcedure
-      .input(z.object({ since: z.string().optional() }).optional())
-      .query(({ input }) => {
-        return getDebugLogs(input?.since);
-      }),
-
-    clearLogs: publicProcedure.mutation(() => {
-      clearDebugLogs();
-      return { success: true };
-    }),
-  }),
 });
 
 export type AppRouter = typeof appRouter;
