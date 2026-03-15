@@ -1,6 +1,6 @@
 import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
-// Using native fetch instead of axios
+import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
@@ -28,22 +28,8 @@ const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
 
-class HttpClient {
-  constructor(private baseURL: string) {}
-
-  async post<T>(path: string, data: any): Promise<{ data: T }> {
-    const response = await fetch(`${this.baseURL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { data: await response.json() };
-  }
-}
-
 class OAuthService {
-  constructor(private client: HttpClient) {
+  constructor(private client: ReturnType<typeof axios.create>) {
     console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
     if (!ENV.oAuthServerUrl) {
       console.error(
@@ -90,17 +76,19 @@ class OAuthService {
   }
 }
 
-const createOAuthHttpClient = () => ({
-  baseURL: ENV.oAuthServerUrl,
-  timeout: AXIOS_TIMEOUT_MS,
-});
+const createOAuthHttpClient = (): AxiosInstance =>
+  axios.create({
+    baseURL: ENV.oAuthServerUrl,
+    timeout: AXIOS_TIMEOUT_MS,
+  });
 
 class SDKServer {
+  private readonly client: AxiosInstance;
   private readonly oauthService: OAuthService;
 
-  constructor() {
-    const httpClient = new HttpClient(ENV.oAuthServerUrl);
-    this.oauthService = new OAuthService(httpClient);
+  constructor(client: AxiosInstance = createOAuthHttpClient()) {
+    this.client = client;
+    this.oauthService = new OAuthService(this.client);
   }
 
   private deriveLoginMethod(
@@ -252,8 +240,7 @@ class SDKServer {
       projectId: ENV.appId,
     };
 
-    const httpClient = new HttpClient(ENV.oAuthServerUrl);
-    const { data } = await httpClient.post<GetUserInfoWithJwtResponse>(
+    const { data } = await this.client.post<GetUserInfoWithJwtResponse>(
       GET_USER_INFO_WITH_JWT_PATH,
       payload
     );
@@ -280,32 +267,21 @@ class SDKServer {
     }
 
     const sessionUserId = session.openId;
-    
-    // Check cache first to avoid database query on every request
-    let user = getCachedUser(sessionUserId);
-    if (!user) {
-      user = await db.getUserByOpenId(sessionUserId);
-      if (user) {
-        setCachedUser(user);
-      }
-    }
+    const signedInAt = new Date();
+    let user = await db.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
-        const signedInAt = new Date();
         await db.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || null,
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: new Date(),
+          lastSignedIn: signedInAt,
         });
         user = await db.getUserByOpenId(userInfo.openId);
-        if (user) {
-          setCachedUser(user);
-        }
       } catch (error) {
         console.error("[Auth] Failed to sync user from OAuth:", error);
         throw ForbiddenError("Failed to sync user info");
@@ -316,42 +292,13 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    // Only update lastSignedIn if more than 1 hour has passed
-    const lastSignedInTime = user.lastSignedIn ? new Date(user.lastSignedIn).getTime() : 0;
-    const now = Date.now();
-    const hourInMs = 60 * 60 * 1000;
-    if (now - lastSignedInTime > hourInMs) {
-      const updatedUser = { ...user, lastSignedIn: new Date() };
-      await db.upsertUser({
-        openId: user.openId,
-        lastSignedIn: updatedUser.lastSignedIn,
-      });
-      setCachedUser(updatedUser);
-    }
+    await db.upsertUser({
+      openId: user.openId,
+      lastSignedIn: signedInAt,
+    });
 
     return user;
   }
 }
 
 export const sdk = new SDKServer();
-
-// Simple in-memory cache for users to avoid database queries on every request
-const userCache = new Map<string, { user: User; timestamp: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-export function getCachedUser(openId: string): User | null {
-  const cached = userCache.get(openId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.user;
-  }
-  userCache.delete(openId);
-  return null;
-}
-
-export function setCachedUser(user: User): void {
-  userCache.set(user.openId, { user, timestamp: Date.now() });
-}
-
-export function clearUserCache(openId: string): void {
-  userCache.delete(openId);
-}
