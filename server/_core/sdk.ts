@@ -300,6 +300,7 @@ class SDKServer {
           name: userInfo.name || null,
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+          lastSignedIn: new Date(),
         });
         user = await db.getUserByOpenId(userInfo.openId);
         if (user) {
@@ -313,6 +314,19 @@ class SDKServer {
 
     if (!user) {
       throw ForbiddenError("User not found");
+    }
+
+    // Only update lastSignedIn if more than 1 hour has passed
+    const lastSignedInTime = user.lastSignedIn ? new Date(user.lastSignedIn).getTime() : 0;
+    const now = Date.now();
+    const hourInMs = 60 * 60 * 1000;
+    if (now - lastSignedInTime > hourInMs) {
+      const updatedUser = { ...user, lastSignedIn: new Date() };
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: updatedUser.lastSignedIn,
+      });
+      setCachedUser(updatedUser);
     }
 
     return user;
