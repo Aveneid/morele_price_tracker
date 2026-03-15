@@ -282,7 +282,7 @@ class SDKServer {
     const sessionUserId = session.openId;
     
     // Check cache first to avoid database query on every request
-    let user: any = getCachedUser(sessionUserId);
+    let user = getCachedUser(sessionUserId);
     if (!user) {
       user = await db.getUserByOpenId(sessionUserId);
       if (user) {
