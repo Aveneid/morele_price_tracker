@@ -133,15 +133,13 @@ export async function createProduct(
   try {
     debugLog('CREATE_PRODUCT', 'Creating product');
 
+    // Build the insert values object
+    const insertValues: any = { ...data };
+    debugLog('CREATE_PRODUCT', 'Insert values prepared');
+
     const result = await db
       .insert(products)
-      .values({
-        name: data.name,
-        url: data.url,
-        productCode: data.productCode || null,
-        imageUrl: data.imageUrl || null,
-        category: data.category || null,
-      })
+      .values(insertValues)
       .$returningId();
 
     debugLog('CREATE_PRODUCT', 'Insert completed, result length:', result.length);
