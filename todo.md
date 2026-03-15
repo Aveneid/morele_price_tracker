@@ -155,5 +155,13 @@
 ## Current Session: Debug Console & Bug Fixes
 - [ ] Add debug console checkbox to admin panel
 - [ ] Implement debug logging for function calls and SQL queries
-- [ ] Fix userId missing issue in product insertion
-- [ ] Test debug logging and product addition
+- [x] Fix userId missing issue in product insertion
+- [x] Test debug logging and product addition
+
+## Scraper Refactor: HTTP + Cheerio (Current Session)
+- [x] Replace Puppeteer with Cheerio for lightweight DOM parsing
+- [x] Implement HTTP-based scraping with proper headers
+- [x] Test scraper with morele.net product URL
+- [x] Verify product addition workflow end-to-end
+- [x] Confirm price extraction from div#product_price
+- [x] Verify product image and category scraping

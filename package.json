@@ -46,6 +46,7 @@
     "@trpc/react-query": "^11.10.0",
     "@types/ws": "^8.18.1",
     "axios": "^1.12.2",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

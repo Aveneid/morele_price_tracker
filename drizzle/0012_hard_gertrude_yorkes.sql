@@ -1,0 +1,2 @@
+ALTER TABLE `products` ADD `userId` int;--> statement-breakpoint
+ALTER TABLE `products` ADD CONSTRAINT `products_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE cascade ON UPDATE no action;

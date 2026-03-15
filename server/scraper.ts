@@ -1,30 +1,5 @@
-import puppeteer, { Browser, Page } from "puppeteer";
-
-let browser: Browser | null = null;
-
-/**
- * Get or create a Puppeteer browser instance
- */
-async function getBrowser(): Promise<Browser> {
-  if (!browser) {
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath: "/usr/bin/chromium-browser",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
-    });
-  }
-  return browser;
-}
-
-/**
- * Close the browser instance
- */
-export async function closeBrowser(): Promise<void> {
-  if (browser) {
-    await browser.close();
-    browser = null;
-  }
-}
+import axios from "axios";
+import * as cheerio from "cheerio";
 
 /**
  * Extract product code from URL
@@ -62,8 +37,8 @@ export function parsePrice(priceText: string): number | null {
 }
 
 /**
- * Scrape product information from morele.net
- * Returns: { name, price (in cents), url, productCode }
+ * Scrape product information from morele.net using HTTP + DOM parsing
+ * Returns: { name, price (in cents), url, productCode, imageUrl, category }
  */
 export async function scrapeProduct(url: string, userEmail?: string): Promise<{
   name: string | null;
@@ -72,220 +47,220 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
   imageUrl?: string | null;
   category?: string | null;
 } | null> {
-  let page: Page | null = null;
   const isDebugUser = userEmail === 'sigarencja@gmail.com';
 
   try {
-    const browserInstance = await getBrowser();
-    page = await browserInstance.newPage();
+    // Fetch the page with proper headers to avoid blocking
+    const response = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate",
+        Connection: "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      timeout: 15000,
+    });
 
-    // Set viewport and user agent to avoid detection
-    await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
+    const html = response.data;
+    const $ = cheerio.load(html);
 
-    // Navigate to the product page with timeout
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-
-    // Wait for content to load
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Extract product information
-    const result = await page.evaluate(() => {
-      // Get product name from h1 or title
-      let name = null;
-      const h1 = document.querySelector("h1");
-      if (h1) {
-        name = h1.textContent?.trim() || null;
+    // Extract product name from h1 or title
+    let name = null;
+    const h1 = $("h1").first().text().trim();
+    if (h1) {
+      name = h1;
+    }
+    if (!name) {
+      const titleTag = $("title").text().trim();
+      if (titleTag) {
+        name = titleTag.split(" - ")[0]?.trim() || null;
       }
-      if (!name) {
-        const titleTag = document.querySelector("title");
-        if (titleTag) {
-          name = titleTag.textContent?.split(" - ")[0]?.trim() || null;
-        }
+    }
+
+    // Primary strategy: Get price from #product_price div data-price attribute
+    let priceText = null;
+    const productPriceDiv = $("#product_price");
+    if (productPriceDiv.length > 0) {
+      const dataPrice = productPriceDiv.attr("data-price");
+      if (dataPrice) {
+        // data-price is typically in format like "415.08" or "415,08"
+        priceText = dataPrice.replace(".", ",") + " zł";
       }
+    }
 
-      // Primary strategy: Get price from #product_price div data-price attribute
-      let priceText = null;
-      const productPriceDiv = document.querySelector("#product_price");
-      if (productPriceDiv) {
-        const dataPrice = productPriceDiv.getAttribute("data-price");
-        if (dataPrice) {
-          // data-price is typically in format like "415.08" or "415,08"
-          priceText = dataPrice.replace(".", ",") + " zł";
-        }
+    // Fallback: Look for price in the product_price div text content
+    if (!priceText) {
+      const priceContent = productPriceDiv.text().trim();
+      if (priceContent) {
+        priceText = priceContent;
       }
+    }
 
-      // Fallback: Collect all potential prices with their context if data-price not found
-      if (!priceText) {
-        const priceMatches: Array<{ text: string; price: number; element: HTMLElement }> = [];
+    // Fallback 2: Collect all potential prices with their context if data-price not found
+    if (!priceText) {
+      const priceMatches: Array<{ text: string; price: number }> = [];
 
-        // Strategy 2: Look for the main price display (usually contains "max" or is in a prominent location)
-        const allElements = document.querySelectorAll("span, div, p, strong, b");
-        for (const el of Array.from(allElements)) {
-          const text = el.textContent?.trim() || "";
-          
-          // Look for price patterns
-          const priceMatch = text.match(/(\d+[.,]\d+)\s*zł\s*(max)?/);
-          if (priceMatch) {
-            const priceStr = priceMatch[1];
-            const numPrice = parseFloat(priceStr.replace(",", "."));
-            
-            // Skip very small prices (installment rates, services)
-            if (numPrice >= 10) {
-              priceMatches.push({
-                text: text,
-                price: numPrice,
-                element: el as HTMLElement
-              });
-            }
+      // Look for the main price display (usually contains "max" or is in a prominent location)
+      $("span, div, p, strong, b").each((_, el) => {
+        const text = $(el).text().trim();
+
+        // Look for price patterns
+        const priceMatch = text.match(/(\d+[.,]\d+)\s*zł\s*(max)?/);
+        if (priceMatch) {
+          const priceStr = priceMatch[1];
+          const numPrice = parseFloat(priceStr.replace(",", "."));
+
+          // Skip very small prices (installment rates, services)
+          if (numPrice >= 10) {
+            priceMatches.push({
+              text: text,
+              price: numPrice,
+            });
           }
         }
+      });
 
-        // Sort by price (descending) to prefer the main product price
-        priceMatches.sort((a, b) => b.price - a.price);
+      // Sort by price (descending) to prefer the main product price
+      priceMatches.sort((a, b) => b.price - a.price);
 
-        if (priceMatches.length > 0) {
-          // Take the highest price that's not marked as "od" (from)
-          for (const match of priceMatches) {
-            if (!match.text.toLowerCase().includes("od")) {
-              priceText = match.text;
-              break;
-            }
-          }
-          // If all prices have "od", take the first (highest) one
-          if (!priceText && priceMatches.length > 0) {
-            priceText = priceMatches[0].text;
-          }
-        }
-      }
-
-      // Get product code from URL
-      const url = window.location.href;
-      const codeMatch = url.match(/(\d+)\/?$/);
-      const productCode = codeMatch ? codeMatch[1] : null;
-
-      // Get product image
-      let imageUrl = null;
-      const imgSelectors = [
-        'img[alt*="Zdjęcie produktu"]',
-        'img[alt*="produktu"]',
-        '.product-image img',
-        '[class*="image"] img',
-        'picture img',
-        'img[src*="morele"]',
-      ];
-
-      for (const selector of imgSelectors) {
-        const imgEl = document.querySelector(selector) as HTMLImageElement;
-        if (imgEl && imgEl.src && imgEl.src.length > 0) {
-          imageUrl = imgEl.src;
-          break;
-        }
-      }
-
-      // Get product category from breadcrumb - find main category without filters
-      let category = null;
-      const breadcrumbs = document.querySelectorAll('.breadcrumb a');
-      
-      for (let i = breadcrumbs.length - 1; i >= 0; i--) {
-        const href = breadcrumbs[i].getAttribute('href') || '';
-        const text = breadcrumbs[i].textContent?.trim();
-        
-        if (href.includes('/kategoria/') && !href.includes(',,')) {
-          category = text || null;
-          break;
-        }
-      }
-      
-      if (!category && breadcrumbs.length > 0) {
-        for (let i = breadcrumbs.length - 1; i >= 0; i--) {
-          const href = breadcrumbs[i].getAttribute('href') || '';
-          if (href.includes('/kategoria/')) {
-            category = breadcrumbs[i].textContent?.trim() || null;
+      if (priceMatches.length > 0) {
+        // Take the highest price that's not marked as "od" (from)
+        for (const match of priceMatches) {
+          if (!match.text.toLowerCase().includes("od")) {
+            priceText = match.text;
             break;
           }
         }
+        // If all prices have "od", take the first (highest) one
+        if (!priceText && priceMatches.length > 0) {
+          priceText = priceMatches[0].text;
+        }
       }
+    }
 
-      return { name, priceText, productCode, imageUrl, category };
-    });
-
-      if (!result.priceText) {
+    if (!priceText) {
       console.warn(`[Scraper] No price found for ${url}`);
-      
+
       if (isDebugUser) {
-        console.warn('[Scraper Debug] No Price Found:');
-        console.warn('URL:', url);
-        console.warn('Page Title:', result.name);
-        console.warn('Timestamp:', new Date().toISOString());
+        console.warn("[Scraper Debug] No Price Found:");
+        console.warn("URL:", url);
+        console.warn("Page Title:", name);
+        console.warn("Timestamp:", new Date().toISOString());
       }
-      
+
       return null;
     }
 
     // Parse the price
-    const price = parsePrice(result.priceText);
+    const price = parsePrice(priceText);
     if (price === null) {
       console.warn(
-        `[Scraper] Failed to parse price "${result.priceText}" for ${url}`
+        `[Scraper] Failed to parse price "${priceText}" for ${url}`
       );
-      
+
       if (isDebugUser) {
-        console.warn('[Scraper Debug] Price Parsing Failed:');
-        console.warn('Raw Price Text:', result.priceText);
-        console.warn('URL:', url);
-        console.warn('Timestamp:', new Date().toISOString());
+        console.warn("[Scraper Debug] Price Parsing Failed:");
+        console.warn("Raw Price Text:", priceText);
+        console.warn("URL:", url);
+        console.warn("Timestamp:", new Date().toISOString());
       }
-      
+
       return null;
     }
 
-    // Extract product code from URL as fallback
-    const productCode = result.productCode || extractProductCode(url);
+    // Get product code from URL
+    const productCode = extractProductCode(url);
+
+    // Get product image
+    let imageUrl = null;
+    const imgSelectors = [
+      'img[alt*="Zdjęcie produktu"]',
+      'img[alt*="produktu"]',
+      ".product-image img",
+      '[class*="image"] img',
+      "picture img",
+      'img[src*="morele"]',
+    ];
+
+    for (const selector of imgSelectors) {
+      const imgEl = $(selector).first();
+      if (imgEl.length > 0) {
+        const src = imgEl.attr("src");
+        if (src && src.length > 0) {
+          imageUrl = src;
+          break;
+        }
+      }
+    }
+
+    // Get product category from breadcrumb - find main category without filters
+    let category = null;
+    const breadcrumbs = $(".breadcrumb a");
+
+    for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+      const href = breadcrumbs.eq(i).attr("href") || "";
+      const text = breadcrumbs.eq(i).text().trim();
+
+      if (href.includes("/kategoria/") && !href.includes(",,")) {
+        category = text || null;
+        break;
+      }
+    }
+
+    if (!category && breadcrumbs.length > 0) {
+      for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+        const href = breadcrumbs.eq(i).attr("href") || "";
+        if (href.includes("/kategoria/")) {
+          category = breadcrumbs.eq(i).text().trim() || null;
+          break;
+        }
+      }
+    }
 
     const priceInPLN = (price / 100).toFixed(2);
-    console.log(`[Scraper] Successfully scraped: ${result.name} - ${priceInPLN} PLN (from: "${result.priceText}")`);
-    
+    console.log(
+      `[Scraper] Successfully scraped: ${name} - ${priceInPLN} PLN (from: "${priceText}")`
+    );
+
     if (isDebugUser) {
-      console.log('[Scraper Debug] Scrape Success:');
-      console.log('Product Name:', result.name);
-      console.log('Price (PLN):', priceInPLN);
-      console.log('Price (cents):', price);
-      console.log('Product Code:', productCode);
-      console.log('URL:', url);
-      console.log('Timestamp:', new Date().toISOString());
+      console.log("[Scraper Debug] Scrape Success:");
+      console.log("Product Name:", name);
+      console.log("Price (PLN):", priceInPLN);
+      console.log("Price (cents):", price);
+      console.log("Product Code:", productCode);
+      console.log("Image URL:", imageUrl);
+      console.log("Category:", category);
+      console.log("URL:", url);
+      console.log("Timestamp:", new Date().toISOString());
     }
 
     return {
-      name: result.name,
+      name,
       price,
       productCode,
-      imageUrl: result.imageUrl,
-      category: result.category,
+      imageUrl,
+      category,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : '';
-    
+    const errorStack = error instanceof Error ? error.stack : "";
+
     console.error(`[Scraper] Error scraping ${url}:`, error);
-    
+
     // Detailed logging for debug user
     if (isDebugUser) {
-      console.error('[Scraper Debug] Detailed Error Information:');
-      console.error('URL:', url);
-      console.error('Error Message:', errorMessage);
-      console.error('Error Stack:', errorStack);
-      console.error('Timestamp:', new Date().toISOString());
-      console.error('Browser Status:', browser ? 'Active' : 'Inactive');
+      console.error("[Scraper Debug] Detailed Error Information:");
+      console.error("URL:", url);
+      console.error("Error Message:", errorMessage);
+      console.error("Error Stack:", errorStack);
+      console.error("Timestamp:", new Date().toISOString());
     }
-    
+
     return null;
-  } finally {
-    if (page) {
-      await page.close();
-    }
   }
 }
 
