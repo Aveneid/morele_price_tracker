@@ -27,7 +27,6 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const products = mysqlTable("products", {
   id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   url: varchar("url", { length: 2048 }).notNull(),
   productCode: varchar("productCode", { length: 64 }),

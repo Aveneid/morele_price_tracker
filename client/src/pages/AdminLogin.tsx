@@ -18,9 +18,10 @@ export default function AdminLogin() {
       toast.success("Login successful!");
       navigate("/admin");
     },
-    onError: (err) => {
-      setError(err.message || "Login failed");
-      toast.error("Login failed");
+    onError: (err: unknown) => {
+      const errorMessage = err instanceof Error ? err.message : "Login failed";
+      setError(errorMessage);
+      toast.error(errorMessage);
     },
   });
 

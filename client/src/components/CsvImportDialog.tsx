@@ -14,10 +14,10 @@ export function CsvImportDialog() {
 
   const importMutation = trpc.products.importFromCsv.useMutation({
     onSuccess: (result) => {
-      toast.success(result.message);
+      toast.success(`Successfully imported ${result.successful} products`);
       if (result.errors.length > 0) {
         toast.error(
-          `${result.errors.length} rows failed: ${result.errors.map((e) => `Row ${e.row}: ${e.error}`).join("; ")}`
+          `${result.failed} products failed: ${result.errors.join("; ")}`
         );
       }
       setCsvContent("");
@@ -25,8 +25,9 @@ export function CsvImportDialog() {
       // Refetch products
       trpc.useUtils().products.list.invalidate();
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to import CSV");
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to import CSV";
+      toast.error(errorMessage);
     },
   });
 

@@ -32,6 +32,7 @@ import {
   getJobExecutions,
 } from "./db";
 import { scheduleJob, unscheduleJob, executeJob } from "./jobScheduler";
+import { adminRouter } from "./_core/adminRouter";
 
 // ============ PASSWORD UTILITIES ============
 
@@ -63,6 +64,9 @@ function checkPriceCheckCooldown(lastCheckedAt: Date | null): number {
 // ============ ROUTER ============
 
 export const appRouter = router({
+  // ============ ADMIN ============
+  admin: adminRouter,
+
   // ============ PRODUCT TRACKING ============
   products: router({
     // Get all products (public access)
@@ -102,21 +106,19 @@ export const appRouter = router({
         if (minutesSinceLastCheck < 15) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
-            message: `Please wait ${Math.ceil(15 - minutesSinceLastCheck)} more minutes before requesting another price check.`,
+            message: `Please wait ${Math.ceil(15 - minutesSinceLastCheck)} minutes before requesting another price check.`,
           });
         }
 
-        // Perform price check
         try {
+          // Scrape current price
           const scrapedData = await scrapeProduct(product.url);
 
-          if (!scrapedData) {
-            throw new Error("Failed to scrape product price");
-          }
-
-          // Record new price
-          if (scrapedData.price) {
-            await recordPrice(product.id, scrapedData.price);
+          if (!scrapedData || scrapedData.price === null) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Could not scrape current price",
+            });
           }
 
           // Update product
@@ -188,7 +190,7 @@ export const appRouter = router({
             lastCheckedAt: new Date(),
           });
 
-          const newProduct = await createProduct(null, {
+          const newProduct = await createProduct({
             name: scrapedData.name || "Unknown Product",
             url: productUrl,
             productCode: scrapedData.productCode || "",
@@ -252,21 +254,17 @@ export const appRouter = router({
             });
           }
 
-          // Remove from scheduler
-          removeProductSchedule(input.productId);
-
-          // Delete price history first, then product
-          await db.delete(priceHistory).where(eq(priceHistory.productId, input.productId));
+          // Delete product (cascade will delete price history)
           await db.delete(products).where(eq(products.id, input.productId));
+
+          // Remove scheduled price check
+          removeProductSchedule(input.productId);
 
           return {
             success: true,
             message: "Product deleted successfully",
           };
         } catch (error: any) {
-          if (error.code) {
-            throw error;
-          }
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to delete product",
@@ -274,355 +272,87 @@ export const appRouter = router({
         }
       }),
 
-    // Update product check interval
-    updateCheckInterval: publicProcedure
-      .input(
-        z.object({
-          productId: z.number(),
-          checkIntervalMinutes: z.number().min(1).max(1440),
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          const product = await getProductById(input.productId);
-          if (!product) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Product not found",
-            });
-          }
-
-          await updateProduct(input.productId, {
-            checkIntervalMinutes: input.checkIntervalMinutes,
-          });
-
-          const updatedProduct = await getProductById(input.productId);
-          if (updatedProduct) {
-            updateProductSchedule(updatedProduct);
-          }
-
-          return {
-            success: true,
-            message: "Check interval updated successfully",
-          };
-        } catch (error: any) {
-          if (error.code) {
-            throw error;
-          }
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to update check interval",
-          });
-        }
-      }),
-
-    // Update product price alert threshold
-    updateAlertThreshold: publicProcedure
-      .input(
-        z.object({
-          productId: z.number(),
-          priceAlertThreshold: z.number().min(0).max(100),
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          const product = await getProductById(input.productId);
-          if (!product) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Product not found",
-            });
-          }
-
-          await updateProduct(input.productId, {
-            priceAlertThreshold: input.priceAlertThreshold,
-          });
-
-          return {
-            success: true,
-            message: "Alert threshold updated successfully",
-          };
-        } catch (error: any) {
-          if (error.code) {
-            throw error;
-          }
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to update alert threshold",
-          });
-        }
-      }),
-
-    // Import products from CSV
+    // Import products from CSV (public access)
     importFromCsv: publicProcedure
-      .input(
-        z.object({
-          csvContent: z.string(),
-        })
-      )
+      .input(z.object({ csvContent: z.string() }))
       .mutation(async ({ input }) => {
         try {
-          // Parse CSV
           const rows = parseCsv(input.csvContent);
+          const errors = validateCsvImport(rows);
 
-          if (rows.length === 0) {
+          if (errors.length > 0) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "CSV file is empty or has no valid product rows",
+              message: `CSV validation failed: ${errors.map(e => e.error).join(", ")}`,
             });
           }
 
-          // Validate all rows
-          const validationErrors = validateCsvImport(rows);
-          if (validationErrors.length > 0) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `CSV validation failed: ${validationErrors.map((e) => `Row ${e.row}: ${e.error}`).join("; ")}`,
-            });
-          }
+          const results = {
+            successful: 0,
+            failed: 0,
+            errors: [] as string[],
+          };
 
-          // Import products
-          let successful = 0;
-          let failed = 0;
-          const errors: Array<{ row: number; error: string }> = [];
-
-          for (let i = 0; i < rows.length; i++) {
+          for (const row of rows) {
             try {
-              const row = rows[i];
-              const input = row.url || row.productCode || "";
+              // For CSV import, scrape the product to get name, price, etc.
+              const inputUrl = row.url || `https://www.morele.net/search/?q=${row.productCode}`;
+              const scrapedData = await scrapeProduct(inputUrl);
 
-              // Use existing add product logic
-              const result = await createProduct(
-                0, // userId: Public product
-                {
-                  url: row.url || "",
-                  productCode: row.productCode,
-                  checkIntervalMinutes: row.checkIntervalMinutes || 60,
-                  priceAlertThreshold: row.priceAlertThreshold || 10,
-                  name: row.url || row.productCode || "Imported Product",
-                }
+              if (!scrapedData) {
+                results.failed++;
+                results.errors.push(`Could not scrape product from ${inputUrl}`);
+                continue;
+              }
+
+              // Check for duplicates
+              const allProducts = await getAllProducts();
+              const exists = allProducts.some(
+                (p) => p.productCode === scrapedData.productCode || p.url === inputUrl
               );
 
-              if (result) {
-                // Schedule price check
-                scheduleProductPriceCheck(result);
-                successful++;
+              if (exists) {
+                results.failed++;
+                results.errors.push(`Product ${scrapedData.name} already exists`);
+                continue;
+              }
+
+              // Create product
+              const product = await createProduct({
+                name: scrapedData.name || "Unknown Product",
+                url: inputUrl,
+                productCode: scrapedData.productCode || row.productCode || "",
+                category: scrapedData.category || null,
+                imageUrl: scrapedData.imageUrl || null,
+                currentPrice: scrapedData.price || 0,
+                previousPrice: scrapedData.price || 0,
+                lastCheckedAt: new Date(),
+              });
+
+              if (product) {
+                results.successful++;
+                // Record initial price
+                if (scrapedData.price) {
+                  await recordPrice(product.id, scrapedData.price);
+                }
               } else {
-                failed++;
-                errors.push({ row: i + 1, error: "Failed to create product" });
+                results.failed++;
+                results.errors.push(`Failed to create product ${scrapedData.name}`);
               }
             } catch (error: any) {
-              failed++;
-              errors.push({
-                row: i + 1,
-                error: error.message || "Unknown error",
-              });
+              results.failed++;
+              results.errors.push(`Error importing product: ${error.message}`);
             }
           }
 
-          return {
-            total: rows.length,
-            successful,
-            failed,
-            errors,
-            message: `Imported ${successful} of ${rows.length} products successfully`,
-          };
+          return results;
         } catch (error: any) {
-          if (error.code) {
-            throw error;
-          }
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error.message || "Failed to import CSV",
           });
         }
       }),
-  }),
-
-  // ============ ADMIN AUTHENTICATION ============
-  admin: router({
-    // Get admin settings
-    getSettings: publicProcedure.query(async () => {
-      return getOrCreateSettings(0);
-    }),
-
-    // Admin login
-    login: publicProcedure
-      .input(z.object({ username: z.string(), password: z.string() }))
-      .mutation(async ({ input, ctx }) => {
-        const admin = await getAdminByUsername(input.username);
-
-        if (!admin || !verifyPasswordSHA1(input.password, admin.passwordHash)) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid username or password",
-          });
-        }
-
-        // Set session cookie
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, JSON.stringify({ adminId: admin.id }), {
-          ...cookieOptions,
-          maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        });
-
-        return {
-          success: true,
-          admin: {
-            id: admin.id,
-            username: admin.username,
-          },
-        };
-      }),
-
-    // Admin logout
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true };
-    }),
-
-    // Toggle debug mode
-    toggleDebugMode: publicProcedure
-      .input(z.object({ enabled: z.boolean() }))
-      .mutation(async ({ input }) => {
-        process.env.DEBUG_MODE = input.enabled ? 'true' : 'false';
-        debugLog('ADMIN', 'Debug mode toggled:', input.enabled);
-        return {
-          success: true,
-          debugMode: input.enabled,
-          message: input.enabled ? 'Debug mode enabled' : 'Debug mode disabled',
-        };
-      }),
-
-    // List all jobs
-    jobs: publicProcedure.query(async () => {
-      return getAllJobs();
-    }),
-
-    // Get job details with execution history
-    jobDetails: publicProcedure
-      .input(z.object({ jobId: z.number() }))
-      .query(async ({ input }) => {
-        const job = await getJobById(input.jobId);
-        if (!job) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Job not found",
-          });
-        }
-
-        const executions = await getJobExecutions(input.jobId, 50);
-        return { job, executions };
-      }),
-
-    // Create job
-    createJob: publicProcedure
-      .input(
-        z.object({
-          name: z.string(),
-          description: z.string().optional(),
-          jobType: z.enum(["price_check", "cleanup", "report", "custom"]),
-          cronExpression: z.string(),
-          isActive: z.boolean().default(true),
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          const job = await createJob(input);
-          if (job) {
-            scheduleJob(job);
-          }
-          return job;
-        } catch (error: any) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to create job",
-          });
-        }
-      }),
-
-    // Update job
-    updateJob: publicProcedure
-      .input(
-        z.object({
-          jobId: z.number(),
-          name: z.string().optional(),
-          description: z.string().optional(),
-          cronExpression: z.string().optional(),
-          isActive: z.boolean().optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          const { jobId, ...updates } = input;
-          const job = await updateJob(jobId, updates);
-
-          if (job) {
-            if (updates.isActive === false) {
-              unscheduleJob(jobId);
-            } else if (updates.isActive === true || updates.cronExpression) {
-              scheduleJob(job);
-            }
-          }
-
-          return job;
-        } catch (error: any) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to update job",
-          });
-        }
-      }),
-
-    // Delete job
-    deleteJob: publicProcedure
-      .input(z.object({ jobId: z.number() }))
-      .mutation(async ({ input }) => {
-        try {
-          unscheduleJob(input.jobId);
-          const success = await deleteJob(input.jobId);
-          return { success };
-        } catch (error: any) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to delete job",
-          });
-        }
-      }),
-
-    // Execute job manually
-    executeJob: publicProcedure
-      .input(z.object({ jobId: z.number() }))
-      .mutation(async ({ input }) => {
-        try {
-          const job = await getJobById(input.jobId);
-          if (!job) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Job not found",
-            });
-          }
-
-          await executeJob(job);
-          return { success: true, message: "Job executed" };
-        } catch (error: any) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "Failed to execute job",
-          });
-        }
-      })
-  }),
-
-  // ============ AUTHENTICATION ============
-  auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
   }),
 
   // ============ SYSTEM ROUTER ============
