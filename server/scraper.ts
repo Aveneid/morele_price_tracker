@@ -33,6 +33,7 @@ export function parsePrice(priceText: string): number | null {
   if (isNaN(price) || price < 10 || price > 10000000) return null;
 
   // Convert to cents (multiply by 100 and round)
+  // This handles both formats: "1849" (already in PLN) and "1849.99" (PLN with decimals)
   return Math.round(price * 100);
 }
 

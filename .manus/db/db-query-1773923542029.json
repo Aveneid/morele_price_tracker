@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO `products` (`name`, `url`, `productCode`, `imageUrl`, `category`, `currentPrice`, `previousPrice`, `priceChangePercent`, `checkIntervalMinutes`, `priceAlertThreshold`, `lastCheckedAt`) VALUES ('Test Kingston', 'https://www.morele.net/test', '11892219', 'https://test.jpg', 'RAM', 184900, 184900, 0, 60, 10, NOW());",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sYD7pt8wPuFWH3.root --database Y9rYu3gSkPyNmxB5akedhP --execute INSERT INTO `products` (`name`, `url`, `productCode`, `imageUrl`, `category`, `currentPrice`, `previousPrice`, `priceChangePercent`, `checkIntervalMinutes`, `priceAlertThreshold`, `lastCheckedAt`) VALUES ('Test Kingston', 'https://www.morele.net/test', '11892219', 'https://test.jpg', 'RAM', 184900, 184900, 0, 60, 10, NOW());",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 390
+}

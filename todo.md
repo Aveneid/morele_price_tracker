@@ -176,3 +176,9 @@
 - [x] Test admin login flow with default credentials (admin/admin123)
 - [x] Verify admin dashboard loads correctly
 - [x] Test product addition workflow after schema changes
+
+## Database Schema & Product Insertion Fix (Current Session)
+- [x] Fix product insertion error by adding missing fields (priceChangePercent, checkIntervalMinutes, priceAlertThreshold)
+- [x] Verify bigint columns for price storage
+- [x] Test product addition with Kingston Fury Beast product
+- [x] Confirm dashboard displays both products correctly

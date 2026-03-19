@@ -198,6 +198,9 @@ export const appRouter = router({
             imageUrl: scrapedData.imageUrl || null,
             currentPrice: scrapedData.price || 0,
             previousPrice: scrapedData.price || 0,
+            priceChangePercent: 0,
+            checkIntervalMinutes: 60,
+            priceAlertThreshold: 10,
             lastCheckedAt: new Date(),
           });
 

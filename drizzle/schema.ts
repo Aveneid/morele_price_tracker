@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, bigint } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -32,8 +32,8 @@ export const products = mysqlTable("products", {
   productCode: varchar("productCode", { length: 64 }),
   imageUrl: text("imageUrl"),
   category: varchar("category", { length: 255 }), // Product category scraped from breadcrumb
-  currentPrice: int("currentPrice"), // Store as cents to avoid floating point issues
-  previousPrice: int("previousPrice"),
+  currentPrice: bigint("currentPrice", { mode: "number" }), // Store as cents to avoid floating point issues
+  previousPrice: bigint("previousPrice", { mode: "number" }),
   priceChangePercent: int("priceChangePercent").default(0).notNull(), // Store as percentage * 100 (e.g., -10.5% = -1050)
   checkIntervalMinutes: int("checkIntervalMinutes").default(60).notNull(), // Per-product check interval in minutes
   priceAlertThreshold: int("priceAlertThreshold").default(10).notNull(), // Per-product alert threshold in percentage
@@ -48,7 +48,7 @@ export type InsertProduct = typeof products.$inferInsert;
 export const priceHistory = mysqlTable("priceHistory", {
   id: int("id").autoincrement().primaryKey(),
   productId: int("productId").notNull().references(() => products.id, { onDelete: "cascade" }),
-  price: int("price").notNull(), // Store as cents
+  price: bigint("price", { mode: "number" }).notNull(), // Store as cents
   recordedAt: timestamp("recordedAt").defaultNow().notNull(),
 });
 
