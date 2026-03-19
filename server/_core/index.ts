@@ -8,7 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { initializePriceTracking } from "../priceTracker";
-import { initializeNotificationServer } from "../notificationServer";
+
 import { initializeJobScheduler } from "../jobScheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -58,8 +58,7 @@ async function startServer() {
     }
   });
   
-  // Initialize WebSocket notification server
-  initializeNotificationServer(server);
+
   // Initialize price tracking scheduler
   await initializePriceTracking();
   // Initialize job scheduler

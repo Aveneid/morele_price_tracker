@@ -182,3 +182,13 @@
 - [x] Verify bigint columns for price storage
 - [x] Test product addition with Kingston Fury Beast product
 - [x] Confirm dashboard displays both products correctly
+
+
+## WebSocket Removal & Push Notifications (Current Session)
+- [x] Remove WebSocket server code (notificationServer.ts)
+- [x] Remove WebSocket client code (usePriceAlerts hook refactor)
+- [x] Remove ws dependency from package.json
+- [x] Implement browser push notifications for price alerts
+- [x] Update priceTracker to use push notifications instead of WebSocket broadcast
+- [x] Test dashboard without WebSocket errors
+- [x] Verify app stability and performance improvements

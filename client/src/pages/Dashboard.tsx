@@ -18,10 +18,8 @@ export default function Dashboard() {
   const [newProductCode, setNewProductCode] = useState("");
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
 
-  // Listen for price alerts
-  usePriceAlerts((alert) => {
-    toast.success(`Price dropped for ${alert.productName}!`);
-  });
+  // Initialize push notifications for price alerts
+  usePriceAlerts();
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
 
