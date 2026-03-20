@@ -8,10 +8,11 @@ import AdminSettings from "@/components/admin/AdminSettings";
 import AdminLogs from "@/components/admin/AdminLogs";
 import AdminUsers from "@/components/admin/AdminUsers";
 import { toast } from "sonner";
+import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
 
 type TabType = "products" | "settings" | "logs" | "users";
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState<TabType>("products");
   const [, setLocation] = useLocation();
 
@@ -78,5 +79,13 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <ProtectedAdminRoute>
+      <AdminDashboardContent />
+    </ProtectedAdminRoute>
   );
 }
