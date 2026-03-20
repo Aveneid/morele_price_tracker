@@ -211,3 +211,12 @@
 - [x] Add configuration for check interval and offset distribution
 - [x] Test with multiple products to verify staggered execution
 - [x] Monitor for rate limiting and service issues
+
+## Random 10-48 Hour Scheduling Refactor (Current Session)
+- [x] Replace ID-based offset logic with random 10-48 hour intervals
+- [x] Update calculateNextCheckTime function to use random offset from creation time
+- [x] Store nextCheckTime in database for persistence across restarts
+- [x] Implement first check delay based on nextCheckTime calculation
+- [x] Create vitest tests for scheduling logic (6 tests passing)
+- [x] Verify cron expression generation for various intervals
+- [x] Test scheduling strategy with multiple products

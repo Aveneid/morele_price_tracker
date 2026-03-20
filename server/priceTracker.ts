@@ -6,7 +6,7 @@ import { notifyOwner } from "./_core/notification";
 
 /**
  * Price tracking scheduler that checks product prices on a configurable schedule
- * with staggered offsets to prevent service overload
+ * with random 10-48 hour offsets from product creation time to prevent service overload
  */
 
 interface ScheduledTask {
@@ -18,16 +18,18 @@ interface ScheduledTask {
 const scheduledTasks = new Map<number, ScheduledTask>();
 
 /**
- * Calculate offset in seconds for a product based on its ID
- * Distributes checks evenly across the interval to prevent thundering herd
+ * Calculate random offset between 10-48 hours from product creation time
+ * This ensures products added at different times naturally spread out their checks
  */
-function calculateProductOffset(productId: number, intervalMinutes: number): number {
-  const intervalSeconds = intervalMinutes * 60;
-  // Distribute products evenly across the interval
-  // Each product gets a unique offset based on its ID
-  const numSlots = Math.max(1, Math.floor(intervalSeconds / 10)); // Create slots of 10 seconds
-  const offset = (productId % numSlots) * 10;
-  return Math.min(offset, intervalSeconds - 1);
+function calculateNextCheckTime(createdAt: Date): Date {
+  // Random offset between 10 and 48 hours (in milliseconds)
+  const minHours = 10;
+  const maxHours = 48;
+  const minMs = minHours * 60 * 60 * 1000;
+  const maxMs = maxHours * 60 * 60 * 1000;
+  const randomOffset = Math.random() * (maxMs - minMs) + minMs;
+  
+  return new Date(createdAt.getTime() + randomOffset);
 }
 
 /**
@@ -73,12 +75,16 @@ async function checkProductPrice(productId: number): Promise<void> {
       ? Math.round((priceChange / previousPrice) * 10000) // Store as percentage * 100
       : 0;
 
+    // Calculate next check time (random 10-48h from now)
+    const nextCheckTime = calculateNextCheckTime(new Date());
+
     // Update product with new price
     await updateProduct(productId, {
       currentPrice: scrapedData.price,
       previousPrice: previousPrice,
       priceChangePercent,
       lastCheckedAt: new Date(),
+      nextCheckTime,
     });
 
     console.log(
@@ -139,7 +145,7 @@ async function checkProductPrice(productId: number): Promise<void> {
 }
 
 /**
- * Schedule price check for a product with offset to stagger checks
+ * Schedule price check for a product with random 10-48h offset from creation time
  */
 export function scheduleProductPriceCheck(product: any): void {
   // Cancel existing task if any
@@ -154,25 +160,34 @@ export function scheduleProductPriceCheck(product: any): void {
     }
   }
 
-  // Calculate offset for this product to stagger checks
-  const offsetSeconds = calculateProductOffset(product.id, product.checkIntervalMinutes);
-  
-  // Create new cron task
+  // Determine next check time
+  let nextCheckTime = product.nextCheckTime;
+  if (!nextCheckTime) {
+    // If not set, calculate random offset from creation time
+    nextCheckTime = calculateNextCheckTime(product.createdAt);
+  }
+
+  // Calculate delay until next check
+  const now = new Date();
+  const delayMs = Math.max(0, nextCheckTime.getTime() - now.getTime());
+  const delayHours = (delayMs / (1000 * 60 * 60)).toFixed(1);
+
+  // Create new cron task for recurring checks
   const cronExpression = getCronExpression(product.checkIntervalMinutes);
   const task = cron.schedule(cronExpression, async () => {
     await checkProductPrice(product.id);
   });
 
-  // Schedule first check with offset
+  // Schedule first check with delay
   const timeout = setTimeout(() => {
     checkProductPrice(product.id).catch(err => 
-      console.error(`Error in offset check for product ${product.id}:`, err)
+      console.error(`Error in first check for product ${product.id}:`, err)
     );
-  }, offsetSeconds * 1000);
+  }, delayMs);
 
   scheduledTasks.set(product.id, { productId: product.id, task, timeout });
   console.log(
-    `[Price Tracker] Scheduled price check for product ${product.id} every ${product.checkIntervalMinutes} minutes (offset: ${offsetSeconds}s)`
+    `[Price Tracker] Scheduled price check for product ${product.id} every ${product.checkIntervalMinutes} minutes (next check in ${delayHours}h)`
   );
 }
 
@@ -188,7 +203,7 @@ export async function initializePriceTracking(): Promise<void> {
       scheduleProductPriceCheck(product);
     }
 
-    console.log(`[Price Tracker] Initialized price tracking for ${products.length} products with staggered offsets`);
+    console.log(`[Price Tracker] Initialized price tracking for ${products.length} products with random 10-48h offsets`);
   } catch (error) {
     console.error("[Price Tracker] Error initializing price tracking:", error);
   }

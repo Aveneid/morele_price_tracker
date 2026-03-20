@@ -38,6 +38,7 @@ export const products = mysqlTable("products", {
   checkIntervalMinutes: int("checkIntervalMinutes").default(60).notNull(), // Per-product check interval in minutes
   priceAlertThreshold: int("priceAlertThreshold").default(10).notNull(), // Per-product alert threshold in percentage
   lastCheckedAt: timestamp("lastCheckedAt"),
+  nextCheckTime: timestamp("nextCheckTime"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
