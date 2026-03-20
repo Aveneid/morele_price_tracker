@@ -112,3 +112,20 @@ export const jobExecutions = mysqlTable("jobExecutions", {
 
 export type JobExecution = typeof jobExecutions.$inferSelect;
 export type InsertJobExecution = typeof jobExecutions.$inferInsert;
+
+
+// ============ USER PRICE ALERTS ============
+
+export const userPriceAlerts = mysqlTable("userPriceAlerts", {
+  id: int("id").autoincrement().primaryKey(),
+  userFingerprint: varchar("userFingerprint", { length: 255 }).notNull(), // Browser fingerprint UUID
+  productId: int("productId").notNull().references(() => products.id, { onDelete: "cascade" }),
+  alertType: mysqlEnum("alertType", ["price", "percent"]).default("percent").notNull(), // Type of threshold
+  threshold: bigint("threshold", { mode: "number" }).notNull(), // Price in cents or percentage * 100
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserPriceAlert = typeof userPriceAlerts.$inferSelect;
+export type InsertUserPriceAlert = typeof userPriceAlerts.$inferInsert;

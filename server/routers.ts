@@ -17,6 +17,10 @@ import {
   updateProduct,
   getOrCreateSettings,
   getDb,
+  createUserPriceAlert,
+  getUserPriceAlerts,
+  getProductUserAlerts,
+  deleteUserPriceAlert,
 } from "./db";
 import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
@@ -355,6 +359,67 @@ export const appRouter = router({
             message: error.message || "Failed to import CSV",
           });
         }
+      }),
+  }),
+
+  // ============ PRICE ALERTS ROUTER ============
+  priceAlerts: router({
+    create: publicProcedure
+      .input(
+        z.object({
+          userFingerprint: z.string(),
+          productId: z.number(),
+          alertType: z.enum(["price", "percent"]),
+          threshold: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const alert = await createUserPriceAlert({
+          userFingerprint: input.userFingerprint,
+          productId: input.productId,
+          alertType: input.alertType,
+          threshold: input.threshold,
+          isActive: true,
+        });
+
+        if (!alert) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create price alert",
+          });
+        }
+
+        return alert;
+      }),
+
+    list: publicProcedure
+      .input(z.object({ userFingerprint: z.string() }))
+      .query(async ({ input }) => {
+        return await getUserPriceAlerts(input.userFingerprint);
+      }),
+
+    getForProduct: publicProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          userFingerprint: z.string(),
+        })
+      )
+      .query(async ({ input }) => {
+        return await getProductUserAlerts(input.productId, input.userFingerprint);
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ alertId: z.number() }))
+      .mutation(async ({ input }) => {
+        const success = await deleteUserPriceAlert(input.alertId);
+        if (!success) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to delete price alert",
+          });
+        }
+        return { success: true };
       }),
   }),
 

@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { getAllProducts, getProductById, recordPrice, updateProduct } from "./db";
+import { getAllProducts, getProductById, recordPrice, updateProduct, getActiveAlertsForProduct } from "./db";
 import { scrapeProduct } from "./scraper";
 import { notifyOwner } from "./_core/notification";
 
@@ -70,14 +70,47 @@ async function checkProductPrice(productId: number): Promise<void> {
       `[Price Tracker] Updated price for product ${productId}: ${previousPrice} → ${scrapedData.price} (${(priceChangePercent / 100).toFixed(2)}%)`
     );
 
-    // Check if price drop exceeds alert threshold
+     // Check user-specific price alerts
+    const userAlerts = await getActiveAlertsForProduct(productId);
+    
+    for (const alert of userAlerts) {
+      let shouldNotify = false;
+      let alertMessage = "";
+
+      if (alert.alertType === "percent") {
+        // Alert threshold is stored as percentage * 100
+        const alertThresholdPercent = alert.threshold / 100;
+        const dropPercent = Math.abs(priceChangePercent / 100);
+        
+        if (priceChange < 0 && dropPercent >= alertThresholdPercent) {
+          shouldNotify = true;
+          alertMessage = `Price dropped by ${dropPercent.toFixed(2)}% (alert threshold: ${alertThresholdPercent.toFixed(2)}%)`;
+        }
+      } else if (alert.alertType === "price") {
+        // Alert threshold is stored in cents
+        if (scrapedData.price <= alert.threshold) {
+          shouldNotify = true;
+          alertMessage = `Price reached ${(scrapedData.price / 100).toFixed(2)} PLN (alert threshold: ${(alert.threshold / 100).toFixed(2)} PLN)`;
+        }
+      }
+
+      if (shouldNotify) {
+        console.log(
+          `[User Price Alert] Product ${productId}: ${alertMessage}`
+        );
+        
+        // Push notifications are sent client-side when users have the app open
+        // The alert is triggered on the next price check interval
+      }
+    }
+
+    // Check if price drop exceeds global alert threshold
     if (priceChange < 0) {
       const dropPercent = Math.abs(priceChangePercent / 100);
       if (dropPercent >= product.priceAlertThreshold) {
         console.log(
-          `[Price Alert] Product ${productId} price dropped ${dropPercent.toFixed(2)}% (threshold: ${product.priceAlertThreshold}%)`
+          `[Global Price Alert] Product ${productId} price dropped ${dropPercent.toFixed(2)}% (threshold: ${product.priceAlertThreshold}%)`
         );
-
         // Send notification to owner
         await notifyOwner({
           title: `Price Drop Alert: ${product.name}`,

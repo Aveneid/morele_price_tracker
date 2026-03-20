@@ -20,6 +20,9 @@ import {
   jobExecutions,
   JobExecution,
   InsertJobExecution,
+  userPriceAlerts,
+  UserPriceAlert,
+  InsertUserPriceAlert,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { debugLog, debugError } from "./_core/debugLogger";
@@ -425,4 +428,84 @@ export async function updateJobExecution(
     .limit(1);
 
   return result.length > 0 ? result[0] : null;
+}
+
+// ============ USER PRICE ALERTS QUERIES ============
+
+export async function createUserPriceAlert(
+  data: InsertUserPriceAlert
+): Promise<UserPriceAlert | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(userPriceAlerts)
+    .values(data)
+    .$returningId();
+  if (result.length === 0) return null;
+
+  const alertId = result[0].id;
+  const created = await db
+    .select()
+    .from(userPriceAlerts)
+    .where(eq(userPriceAlerts.id, alertId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function getUserPriceAlerts(
+  userFingerprint: string
+): Promise<UserPriceAlert[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(userPriceAlerts)
+    .where(eq(userPriceAlerts.userFingerprint, userFingerprint))
+    .orderBy(desc(userPriceAlerts.createdAt));
+}
+
+export async function getProductUserAlerts(
+  productId: number,
+  userFingerprint: string
+): Promise<UserPriceAlert[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(userPriceAlerts)
+    .where(
+      and(
+        eq(userPriceAlerts.productId, productId),
+        eq(userPriceAlerts.userFingerprint, userFingerprint)
+      )
+    );
+}
+
+export async function deleteUserPriceAlert(id: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  await db.delete(userPriceAlerts).where(eq(userPriceAlerts.id, id));
+  return true;
+}
+
+export async function getActiveAlertsForProduct(
+  productId: number
+): Promise<UserPriceAlert[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(userPriceAlerts)
+    .where(
+      and(
+        eq(userPriceAlerts.productId, productId),
+        eq(userPriceAlerts.isActive, true)
+      )
+    );
 }

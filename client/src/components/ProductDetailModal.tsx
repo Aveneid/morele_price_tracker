@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { PriceAlertManager } from "./PriceAlertManager";
 
 interface ProductDetailModalProps {
   productId: number;
@@ -250,6 +251,9 @@ export default function ProductDetailModal({
                   </ResponsiveContainer>
                 )}
               </div>
+
+              {/* Price Alerts Manager */}
+              <PriceAlertManager productId={productId} currentPrice={product.currentPrice || 0} />
 
               {/* Product Details */}
               <div className="border-t pt-4 text-sm text-gray-600 space-y-2">

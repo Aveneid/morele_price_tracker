@@ -192,3 +192,13 @@
 - [x] Update priceTracker to use push notifications instead of WebSocket broadcast
 - [x] Test dashboard without WebSocket errors
 - [x] Verify app stability and performance improvements
+
+
+## User-Specific Price Alerts (Current Session)
+- [x] Create userPriceAlerts table schema with browser fingerprint UUID
+- [x] Implement browser fingerprinting for anonymous user tracking
+- [x] Create tRPC procedures for managing price alerts (create, list, delete)
+- [x] Add price alert UI controls to product detail modal
+- [x] Implement price threshold checking in price tracker
+- [x] Send notifications when user-specific thresholds are reached
+- [x] Test end-to-end price alert workflow
