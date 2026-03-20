@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # MySQL/TiDB Database
+  db:
+    image: mysql:8.0
+    container_name: morele-tracker-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-morele_tracker}
+      MYSQL_USER: ${DB_USER:-tracker}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-trackerpass}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - morele-network
+
+  # Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: morele-tracker-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-mysql://tracker:trackerpass@db:3306/morele_tracker?ssl={"rejectUnauthorized":false}}
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key-change-in-production}
+      VITE_APP_ID: ${VITE_APP_ID:-}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-}
+      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-}
+      OWNER_NAME: ${OWNER_NAME:-}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
+      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL:-}
+      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY:-}
+      VITE_FRONTEND_FORGE_API_URL: ${VITE_FRONTEND_FORGE_API_URL:-}
+      VITE_FRONTEND_FORGE_API_KEY: ${VITE_FRONTEND_FORGE_API_KEY:-}
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-}
+      VITE_ANALYTICS_ENDPOINT: ${VITE_ANALYTICS_ENDPOINT:-}
+      VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-Morele Price Tracker}
+      VITE_APP_LOGO: ${VITE_APP_LOGO:-}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ./drizzle:/app/drizzle
+    networks:
+      - morele-network
+    restart: unless-stopped
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  morele-network:
+    driver: bridge
