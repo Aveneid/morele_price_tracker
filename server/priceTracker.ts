@@ -6,14 +6,29 @@ import { notifyOwner } from "./_core/notification";
 
 /**
  * Price tracking scheduler that checks product prices on a configurable schedule
+ * with staggered offsets to prevent service overload
  */
 
 interface ScheduledTask {
   productId: number;
   task: any; // cron.ScheduledTask
+  timeout?: NodeJS.Timeout; // For offset-based scheduling
 }
 
 const scheduledTasks = new Map<number, ScheduledTask>();
+
+/**
+ * Calculate offset in seconds for a product based on its ID
+ * Distributes checks evenly across the interval to prevent thundering herd
+ */
+function calculateProductOffset(productId: number, intervalMinutes: number): number {
+  const intervalSeconds = intervalMinutes * 60;
+  // Distribute products evenly across the interval
+  // Each product gets a unique offset based on its ID
+  const numSlots = Math.max(1, Math.floor(intervalSeconds / 10)); // Create slots of 10 seconds
+  const offset = (productId % numSlots) * 10;
+  return Math.min(offset, intervalSeconds - 1);
+}
 
 /**
  * Calculate cron expression from minutes interval
@@ -124,7 +139,7 @@ async function checkProductPrice(productId: number): Promise<void> {
 }
 
 /**
- * Schedule price check for a product
+ * Schedule price check for a product with offset to stagger checks
  */
 export function scheduleProductPriceCheck(product: any): void {
   // Cancel existing task if any
@@ -132,19 +147,32 @@ export function scheduleProductPriceCheck(product: any): void {
     const existing = scheduledTasks.get(product.id);
     if (existing) {
       existing.task.stop();
+      if (existing.timeout) {
+        clearTimeout(existing.timeout);
+      }
       scheduledTasks.delete(product.id);
     }
   }
 
+  // Calculate offset for this product to stagger checks
+  const offsetSeconds = calculateProductOffset(product.id, product.checkIntervalMinutes);
+  
   // Create new cron task
   const cronExpression = getCronExpression(product.checkIntervalMinutes);
   const task = cron.schedule(cronExpression, async () => {
     await checkProductPrice(product.id);
   });
 
-  scheduledTasks.set(product.id, { productId: product.id, task });
+  // Schedule first check with offset
+  const timeout = setTimeout(() => {
+    checkProductPrice(product.id).catch(err => 
+      console.error(`Error in offset check for product ${product.id}:`, err)
+    );
+  }, offsetSeconds * 1000);
+
+  scheduledTasks.set(product.id, { productId: product.id, task, timeout });
   console.log(
-    `[Price Tracker] Scheduled price check for product ${product.id} every ${product.checkIntervalMinutes} minutes`
+    `[Price Tracker] Scheduled price check for product ${product.id} every ${product.checkIntervalMinutes} minutes (offset: ${offsetSeconds}s)`
   );
 }
 
@@ -160,7 +188,7 @@ export async function initializePriceTracking(): Promise<void> {
       scheduleProductPriceCheck(product);
     }
 
-    console.log(`[Price Tracker] Initialized price tracking for ${products.length} products`);
+    console.log(`[Price Tracker] Initialized price tracking for ${products.length} products with staggered offsets`);
   } catch (error) {
     console.error("[Price Tracker] Error initializing price tracking:", error);
   }
@@ -170,8 +198,11 @@ export async function initializePriceTracking(): Promise<void> {
  * Stop all scheduled tasks
  */
 export function stopAllPriceTracking(): void {
-  scheduledTasks.forEach(({ productId, task }) => {
+  scheduledTasks.forEach(({ productId, task, timeout }) => {
     task.stop();
+    if (timeout) {
+      clearTimeout(timeout);
+    }
     console.log(`[Price Tracker] Stopped price check for product ${productId}`);
   });
   scheduledTasks.clear();
@@ -191,6 +222,9 @@ export function removeProductSchedule(productId: number): void {
   const scheduled = scheduledTasks.get(productId);
   if (scheduled) {
     scheduled.task.stop();
+    if (scheduled.timeout) {
+      clearTimeout(scheduled.timeout);
+    }
     scheduledTasks.delete(productId);
     console.log(`[Price Tracker] Removed price check schedule for product ${productId}`);
   }

@@ -202,3 +202,12 @@
 - [x] Implement price threshold checking in price tracker
 - [x] Send notifications when user-specific thresholds are reached
 - [x] Test end-to-end price alert workflow
+
+
+## Staggered Price Checks (Current Session)
+- [x] Design offset scheduling algorithm to distribute checks across time
+- [x] Implement offset calculation based on product ID or creation time
+- [x] Update priceTracker to schedule checks with offsets
+- [x] Add configuration for check interval and offset distribution
+- [x] Test with multiple products to verify staggered execution
+- [x] Monitor for rate limiting and service issues
