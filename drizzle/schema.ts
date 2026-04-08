@@ -81,6 +81,19 @@ export const adminUsers = mysqlTable("adminUsers", {
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type InsertAdminUser = typeof adminUsers.$inferInsert;
 
+// ============ ADMIN SESSIONS ============
+
+export const adminSessions = mysqlTable("adminSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  adminId: int("adminId").notNull().references(() => adminUsers.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminSession = typeof adminSessions.$inferSelect;
+export type InsertAdminSession = typeof adminSessions.$inferInsert;
+
 // ============ JOB SCHEDULER ============
 
 export const jobs = mysqlTable("jobs", {

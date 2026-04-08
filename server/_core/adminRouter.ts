@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure, router } from "./trpc";
 import crypto from "crypto";
-import { getAdminByUsername, getDb } from "../db";
+import { getAdminByUsername, getDb, createAdminSession, getAdminSessionByToken, deleteAdminSession, cleanupExpiredAdminSessions } from "../db";
 import { adminUsers } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
@@ -54,10 +54,18 @@ export const adminRouter = router({
       };
     }
 
-    // In a real app, you'd validate the session token against a sessions table
-    // For now, we'll just check if the token exists and is not empty
+    // Validate session token against database
+    const session = await getAdminSessionByToken(sessionToken);
+    
+    if (!session) {
+      return {
+        isAuthenticated: false,
+      };
+    }
+
     return {
-      isAuthenticated: !!sessionToken,
+      isAuthenticated: true,
+      adminId: session.adminId,
     };
   }),
 
@@ -75,8 +83,20 @@ export const adminRouter = router({
         });
       }
 
-      // Create and set admin session cookie
+      // Create session token and store in database
       const token = createAdminSessionToken();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      
+      const session = await createAdminSession(admin.id, token, expiresAt);
+      
+      if (!session) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create session",
+        });
+      }
+
+      // Set admin session cookie
       const cookieValue = `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`; // 7 days
       ctx.res?.setHeader("Set-Cookie", cookieValue);
 
@@ -92,6 +112,14 @@ export const adminRouter = router({
 
   // Admin logout
   logout: publicProcedure.mutation(async ({ ctx }) => {
+    // Get session token from cookie
+    const sessionToken = getAdminSessionFromCookie(ctx.req?.headers.cookie);
+    
+    if (sessionToken) {
+      // Delete session from database
+      await deleteAdminSession(sessionToken);
+    }
+
     // Clear admin session cookie
     ctx.res?.setHeader(
       "Set-Cookie",
@@ -182,4 +210,13 @@ export const adminRouter = router({
         throw error;
       }
     }),
+
+  // Cleanup expired sessions (can be called periodically)
+  cleanupExpiredSessions: publicProcedure.mutation(async () => {
+    await cleanupExpiredAdminSessions();
+    return {
+      success: true,
+      message: "Expired sessions cleaned up",
+    };
+  }),
 });

@@ -1,6 +1,5 @@
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc, gte, gt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { sql } from "drizzle-orm";
 import {
   InsertUser,
   users,
@@ -14,6 +13,9 @@ import {
   InsertSettings,
   adminUsers,
   AdminUser,
+  adminSessions,
+  AdminSession,
+  InsertAdminSession,
   jobs,
   Job,
   InsertJob,
@@ -320,6 +322,68 @@ export async function getAdminByUsername(
   return result.length > 0 ? result[0] : null;
 }
 
+// ============ ADMIN SESSION QUERIES ============
+
+export async function createAdminSession(
+  adminId: number,
+  token: string,
+  expiresAt: Date
+): Promise<AdminSession | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(adminSessions)
+    .values({ adminId, token, expiresAt })
+    .$returningId();
+
+  if (result.length === 0) return null;
+
+  const sessionId = result[0].id;
+  const created = await db
+    .select()
+    .from(adminSessions)
+    .where(eq(adminSessions.id, sessionId))
+    .limit(1);
+
+  return created.length > 0 ? created[0] : null;
+}
+
+export async function getAdminSessionByToken(
+  token: string
+): Promise<AdminSession | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const now = new Date();
+  const result = await db
+    .select()
+    .from(adminSessions)
+    .where(
+      and(
+        eq(adminSessions.token, token),
+        gt(adminSessions.expiresAt, now)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function deleteAdminSession(token: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(adminSessions).where(eq(adminSessions.token, token));
+}
+
+export async function cleanupExpiredAdminSessions(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const now = new Date();
+  await db.delete(adminSessions).where(sql`${adminSessions.expiresAt} < ${now}`);
+}
 
 // ============ JOB SCHEDULER QUERIES ============
 
