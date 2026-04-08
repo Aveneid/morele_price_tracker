@@ -6,16 +6,26 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getSessionExpirationDays } from "@/../../shared/config";
 
 export default function AdminLogin() {
   const [, navigate] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const utils = trpc.useUtils();
 
   const loginMutation = trpc.admin.login.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Login successful!");
+      
+      // Invalidate the auth check query to force a refresh
+      await utils.admin.checkAuth.invalidate();
+      
+      // Small delay to ensure session cookie is set and query is invalidated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate to admin panel
       navigate("/admin");
     },
     onError: (err: unknown) => {
@@ -93,6 +103,10 @@ export default function AdminLogin() {
                 "Login"
               )}
             </Button>
+            
+            <p className="text-xs text-gray-500 text-center mt-4">
+              Session expires in {getSessionExpirationDays()} days
+            </p>
           </form>
         </CardContent>
       </Card>

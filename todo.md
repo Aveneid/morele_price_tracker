@@ -254,3 +254,14 @@
 - [x] Create comprehensive vitest tests for session management (10 tests passing)
 - [x] Verify redirect logic works correctly after login
 - [x] Test session expiration and cleanup functionality
+
+
+## Admin Login Redirect Fix (Current Session)
+- [x] Fix AdminLogin page to redirect after successful login
+- [x] Add session expiration configuration to app config
+- [x] Ensure session persists across page refreshes
+- [x] Test login flow with admin credentials
+- [x] Verify redirect to admin panel works correctly
+- [x] Create comprehensive vitest tests for login redirect (20 tests passing)
+- [x] Add query cache invalidation after login mutation
+- [x] Add delay before redirect to allow session cookie to be set

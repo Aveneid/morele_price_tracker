@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { getAdminByUsername, getDb, createAdminSession, getAdminSessionByToken, deleteAdminSession, cleanupExpiredAdminSessions } from "../db";
 import { adminUsers } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { APP_CONFIG } from "../../shared/config";
 
 const ADMIN_SESSION_COOKIE = "admin_session";
 
@@ -85,7 +86,7 @@ export const adminRouter = router({
 
       // Create session token and store in database
       const token = createAdminSessionToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const expiresAt = new Date(Date.now() + APP_CONFIG.admin.sessionExpirationMs);
       
       const session = await createAdminSession(admin.id, token, expiresAt);
       
@@ -97,7 +98,8 @@ export const adminRouter = router({
       }
 
       // Set admin session cookie
-      const cookieValue = `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800`; // 7 days
+      const maxAge = Math.floor(APP_CONFIG.admin.sessionExpirationMs / 1000);
+      const cookieValue = `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`;
       ctx.res?.setHeader("Set-Cookie", cookieValue);
 
       return {
@@ -217,6 +219,15 @@ export const adminRouter = router({
     return {
       success: true,
       message: "Expired sessions cleaned up",
+    };
+  }),
+
+  // Get session configuration
+  getSessionConfig: publicProcedure.query(() => {
+    return {
+      expirationMs: APP_CONFIG.admin.sessionExpirationMs,
+      expirationDays: Math.floor(APP_CONFIG.admin.sessionExpirationMs / (24 * 60 * 60 * 1000)),
+      refreshIntervalMs: APP_CONFIG.admin.sessionRefreshIntervalMs,
     };
   }),
 });
