@@ -103,7 +103,7 @@ export default function ProductDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {productLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
