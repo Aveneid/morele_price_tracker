@@ -265,3 +265,22 @@
 - [x] Create comprehensive vitest tests for login redirect (20 tests passing)
 - [x] Add query cache invalidation after login mutation
 - [x] Add delay before redirect to allow session cookie to be set
+
+
+## Admin Session Handling Debug (Current Session)
+- [x] Investigate why session is not persisting after login
+- [x] Check if session token is being created in database
+- [x] Verify checkAuth procedure is reading session correctly
+- [x] Add redirect to admin panel after successful login
+- [x] Test session validation flow end-to-end - WORKING!
+- [x] Implement custom header-based session token transmission
+- [x] Store session token in sessionStorage for persistence
+
+
+## Bulk Product Operations (Current Session)
+- [x] Add checkboxes to product list for multi-select
+- [x] Implement bulk delete with confirmation dialog
+- [x] Implement bulk update with sequential processing and delay
+- [x] Add progress indicator for bulk operations
+- [x] Test bulk operations end-to-end
+- [x] Add products.update mutation for manual price checks

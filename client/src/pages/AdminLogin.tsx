@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { getSessionExpirationDays } from "@/../../shared/config";
+import { setAdminSessionToken } from "@/lib/adminSessionStorage";
 
 export default function AdminLogin() {
   const [, navigate] = useLocation();
@@ -16,20 +17,48 @@ export default function AdminLogin() {
   const utils = trpc.useUtils();
 
   const loginMutation = trpc.admin.login.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data: any) => {
       toast.success("Login successful!");
+      console.log("[AdminLogin] Login successful, storing session token...");
+      
+      // Store the session token returned from server
+      if (data.token) {
+        setAdminSessionToken(data.token);
+        console.log("[AdminLogin] Session token stored");
+      }
       
       // Invalidate the auth check query to force a refresh
       await utils.admin.checkAuth.invalidate();
+      console.log("[AdminLogin] Auth cache invalidated");
       
-      // Small delay to ensure session cookie is set and query is invalidated
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Small delay to ensure token is stored and will be sent with next request
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Navigate to admin panel
-      navigate("/admin");
+      // Refetch auth to verify session is valid
+      const authResult = await utils.admin.checkAuth.fetch();
+      console.log("[AdminLogin] Auth check result:", authResult);
+      
+      if (authResult.isAuthenticated) {
+        console.log("[AdminLogin] Authenticated! Navigating to admin panel");
+        navigate("/admin");
+      } else {
+        console.log("[AdminLogin] Auth check failed, retrying...");
+        // Retry once more after a delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const retryResult = await utils.admin.checkAuth.fetch();
+        console.log("[AdminLogin] Retry auth check result:", retryResult);
+        
+        if (retryResult.isAuthenticated) {
+          navigate("/admin");
+        } else {
+          setError("Session validation failed. Please try again.");
+          toast.error("Session validation failed");
+        }
+      }
     },
     onError: (err: unknown) => {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
+      console.error("[AdminLogin] Login error:", errorMessage);
       setError(errorMessage);
       toast.error(errorMessage);
     },
@@ -44,6 +73,7 @@ export default function AdminLogin() {
       return;
     }
 
+    console.log("[AdminLogin] Attempting login with username:", username);
     loginMutation.mutate({ username, password });
   };
 

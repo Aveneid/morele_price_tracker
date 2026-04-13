@@ -240,6 +240,47 @@ export const appRouter = router({
         }
       }),
 
+    // Update a product (manual price check)
+    update: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .mutation(async ({ input }) => {
+        const product = await getProductById(input.productId);
+        if (!product) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        try {
+          // Scrape current price
+          const scrapedData = await scrapeProduct(product.url);
+
+          if (!scrapedData || scrapedData.price === null) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Could not scrape current price",
+            });
+          }
+
+          // Update product
+          const previousPrice = product.currentPrice;
+          await updateProduct(product.id, {
+            currentPrice: scrapedData.price || previousPrice,
+            previousPrice: previousPrice || scrapedData.price,
+            lastCheckedAt: new Date(),
+          });
+
+          return {
+            success: true,
+            message: "Product updated successfully",
+            newPrice: scrapedData.price || 0,
+          };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to update product: ${error.message}`,
+          });
+        }
+      }),
+
     // Delete a product
     delete: publicProcedure
       .input(z.object({ productId: z.number() }))

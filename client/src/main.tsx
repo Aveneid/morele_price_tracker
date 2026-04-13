@@ -6,7 +6,11 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { getAdminSessionToken, initializeAdminSession } from "./lib/adminSessionStorage";
 import "./index.css";
+
+// Initialize admin session from storage
+initializeAdminSession();
 
 const queryClient = new QueryClient();
 
@@ -43,9 +47,19 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init) {
+        const headers = new Headers(init?.headers || {});
+        
+        // Add admin session token if available
+        const adminToken = getAdminSessionToken();
+        if (adminToken) {
+          headers.set("X-Admin-Session", adminToken);
+          console.log("[TRPC Client] Sending admin session token");
+        }
+        
         return globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
+          headers,
         });
       },
     }),

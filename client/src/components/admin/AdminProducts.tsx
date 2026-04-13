@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, Loader2 } from "lucide-react";
+import { Trash2, Plus, Loader2, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -9,8 +9,21 @@ export default function AdminProducts() {
   const [newProductUrl, setNewProductUrl] = useState("");
   const [newProductCode, setNewProductCode] = useState("");
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [bulkOperationProgress, setBulkOperationProgress] = useState<{
+    isRunning: boolean;
+    current: number;
+    total: number;
+    operation: "delete" | "update" | null;
+  }>({
+    isRunning: false,
+    current: 0,
+    total: 0,
+    operation: null,
+  });
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
+  
   const addProductMutation = trpc.products.add.useMutation({
     onSuccess: () => {
       toast.success("Product added successfully");
@@ -23,11 +36,14 @@ export default function AdminProducts() {
   });
 
   const deleteProductMutation = trpc.products.delete.useMutation({
-    onSuccess: () => {
-      toast.success("Product deleted successfully");
-    },
     onError: (err: any) => {
       toast.error(err.message || "Failed to delete product");
+    },
+  });
+
+  const updateProductMutation = trpc.products.update.useMutation({
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to update product");
     },
   });
 
@@ -45,6 +61,117 @@ export default function AdminProducts() {
       input: inputMode === "url" ? newProductUrl : newProductCode,
     });
   };
+
+  const handleSelectProduct = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.size === products?.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(products?.map((p: any) => p.id) || []));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+
+    if (!window.confirm(`Delete ${selectedProducts.size} product(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    setBulkOperationProgress({
+      isRunning: true,
+      current: 0,
+      total: selectedProducts.size,
+      operation: "delete",
+    });
+
+    const selectedArray = Array.from(selectedProducts);
+    let deleted = 0;
+
+    for (const productId of selectedArray) {
+      try {
+        await deleteProductMutation.mutateAsync({ productId: parseInt(productId) });
+        deleted++;
+        setBulkOperationProgress((prev) => ({
+          ...prev,
+          current: deleted,
+        }));
+      } catch (error) {
+        console.error("Error deleting product:", error);
+      }
+    }
+
+    setBulkOperationProgress({
+      isRunning: false,
+      current: 0,
+      total: 0,
+      operation: null,
+    });
+
+    setSelectedProducts(new Set());
+    toast.success(`Deleted ${deleted} product(s)`);
+  };
+
+  const handleBulkUpdate = async () => {
+    if (selectedProducts.size === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+
+    setBulkOperationProgress({
+      isRunning: true,
+      current: 0,
+      total: selectedProducts.size,
+      operation: "update",
+    });
+
+    const selectedArray = Array.from(selectedProducts);
+    let updated = 0;
+
+    // Sequential update with 2-second delay between each
+    for (const productId of selectedArray) {
+      try {
+        await updateProductMutation.mutateAsync({ productId: parseInt(productId) });
+        updated++;
+        setBulkOperationProgress((prev) => ({
+          ...prev,
+          current: updated,
+        }));
+
+        // Wait 2 seconds before next update (unless it's the last one)
+        if (updated < selectedArray.length) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      } catch (error) {
+        console.error("Error updating product:", error);
+      }
+    }
+
+    setBulkOperationProgress({
+      isRunning: false,
+      current: 0,
+      total: 0,
+      operation: null,
+    });
+
+    setSelectedProducts(new Set());
+    toast.success(`Updated ${updated} product(s)`);
+  };
+
+  const selectedCount = selectedProducts.size;
+  const allSelected = products && selectedCount === products.length && products.length > 0;
 
   return (
     <div className="space-y-6">
@@ -127,9 +254,54 @@ export default function AdminProducts() {
       {/* Products List */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Tracked Products ({products?.length || 0})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Tracked Products ({products?.length || 0})
+            </h3>
+            {selectedCount > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">
+                  {selectedCount} selected
+                </span>
+                <Button
+                  onClick={handleBulkUpdate}
+                  disabled={bulkOperationProgress.isRunning}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {bulkOperationProgress.isRunning && bulkOperationProgress.operation === "update" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Updating ({bulkOperationProgress.current}/{bulkOperationProgress.total})
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Bulk Update
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleBulkDelete}
+                  disabled={bulkOperationProgress.isRunning}
+                  size="sm"
+                  variant="destructive"
+                >
+                  {bulkOperationProgress.isRunning && bulkOperationProgress.operation === "delete" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting ({bulkOperationProgress.current}/{bulkOperationProgress.total})
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Bulk Delete
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {isLoading ? (
@@ -145,6 +317,14 @@ export default function AdminProducts() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 w-12">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                     Product Name
                   </th>
@@ -166,8 +346,20 @@ export default function AdminProducts() {
                 {products.map((product: any) => (
                   <tr
                     key={product.id}
-                    className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                    className={`border-b border-gray-200 transition-colors ${
+                      selectedProducts.has(product.id)
+                        ? "bg-blue-50"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
+                    <td className="px-6 py-4 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(product.id)}
+                        onChange={() => handleSelectProduct(product.id)}
+                        className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">
                       {product.name}
                     </td>

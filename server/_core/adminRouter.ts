@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { APP_CONFIG } from "../../shared/config";
 
 const ADMIN_SESSION_COOKIE = "admin_session";
+const ADMIN_SESSION_HEADER = "x-admin-session";
 
 /**
  * Hash password using SHA1
@@ -31,39 +32,66 @@ function createAdminSessionToken(): string {
 }
 
 /**
- * Get admin session from cookie
+ * Get admin session from cookie or custom header
  */
-function getAdminSessionFromCookie(cookieHeader?: string): string | null {
-  if (!cookieHeader) return null;
+function getAdminSessionToken(cookieHeader?: string, customHeader?: string | string[]): string | null {
+  // First try custom header (from client-side storage)
+  if (customHeader) {
+    const headerValue = Array.isArray(customHeader) ? customHeader[0] : customHeader;
+    if (headerValue) {
+      console.log("[Admin Session] Found session in custom header");
+      return headerValue;
+    }
+  }
+  
+  // Then try cookie
+  if (!cookieHeader) {
+    console.log("[Admin Session] No cookie header provided");
+    return null;
+  }
+  
   const cookies = cookieHeader.split(";").map(c => c.trim());
   for (const cookie of cookies) {
     if (cookie.startsWith(ADMIN_SESSION_COOKIE + "=")) {
-      return cookie.substring(ADMIN_SESSION_COOKIE.length + 1);
+      const token = cookie.substring(ADMIN_SESSION_COOKIE.length + 1);
+      console.log("[Admin Session] Found session cookie, token:", token.substring(0, 10) + "...");
+      return token;
     }
   }
+  
+  console.log("[Admin Session] No admin session found in headers or cookies");
   return null;
 }
 
 export const adminRouter = router({
   // Check if admin is authenticated
   checkAuth: publicProcedure.query(async ({ ctx }) => {
-    const sessionToken = getAdminSessionFromCookie(ctx.req?.headers.cookie);
+    console.log("[Admin CheckAuth] Starting auth check...");
+    
+    const sessionToken = getAdminSessionToken(
+      ctx.req?.headers.cookie,
+      ctx.req?.headers[ADMIN_SESSION_HEADER]
+    );
     
     if (!sessionToken) {
+      console.log("[Admin CheckAuth] No session token found");
       return {
         isAuthenticated: false,
       };
     }
 
     // Validate session token against database
+    console.log("[Admin CheckAuth] Validating session token in database...");
     const session = await getAdminSessionByToken(sessionToken);
     
     if (!session) {
+      console.log("[Admin CheckAuth] Session not found in database");
       return {
         isAuthenticated: false,
       };
     }
 
+    console.log("[Admin CheckAuth] Session valid! Admin ID:", session.adminId);
     return {
       isAuthenticated: true,
       adminId: session.adminId,
@@ -74,37 +102,52 @@ export const adminRouter = router({
   login: publicProcedure
     .input(z.object({ username: z.string(), password: z.string() }))
     .mutation(async ({ input, ctx }) => {
+      console.log("[Admin Login] Attempting login for username:", input.username);
+      
       // Get admin from database
       const admin = await getAdminByUsername(input.username);
 
       if (!admin || !verifyPasswordSHA1(input.password, admin.passwordHash)) {
+        console.log("[Admin Login] Invalid credentials for username:", input.username);
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid username or password",
         });
       }
 
+      console.log("[Admin Login] Credentials valid, creating session...");
+      
       // Create session token and store in database
       const token = createAdminSessionToken();
       const expiresAt = new Date(Date.now() + APP_CONFIG.admin.sessionExpirationMs);
       
+      console.log("[Admin Login] Session token:", token.substring(0, 10) + "...");
+      console.log("[Admin Login] Expires at:", expiresAt.toISOString());
+      
       const session = await createAdminSession(admin.id, token, expiresAt);
       
       if (!session) {
+        console.log("[Admin Login] Failed to create session in database");
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create session",
         });
       }
 
-      // Set admin session cookie
+      console.log("[Admin Login] Session created successfully");
+      
+      // Set admin session cookie as backup
       const maxAge = Math.floor(APP_CONFIG.admin.sessionExpirationMs / 1000);
-      const cookieValue = `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`;
+      const cookieValue = `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
       ctx.res?.setHeader("Set-Cookie", cookieValue);
 
+      console.log("[Admin Login] Login successful for admin:", admin.id);
+      
+      // Return token so client can store it
       return {
         success: true,
         message: "Login successful",
+        token: token, // Client will store this and send as custom header
         admin: {
           id: admin.id,
           username: admin.username,
@@ -114,10 +157,16 @@ export const adminRouter = router({
 
   // Admin logout
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    // Get session token from cookie
-    const sessionToken = getAdminSessionFromCookie(ctx.req?.headers.cookie);
+    console.log("[Admin Logout] Processing logout...");
+    
+    // Get session token from custom header or cookie
+    const sessionToken = getAdminSessionToken(
+      ctx.req?.headers.cookie,
+      ctx.req?.headers[ADMIN_SESSION_HEADER]
+    );
     
     if (sessionToken) {
+      console.log("[Admin Logout] Deleting session from database");
       // Delete session from database
       await deleteAdminSession(sessionToken);
     }
@@ -125,9 +174,11 @@ export const adminRouter = router({
     // Clear admin session cookie
     ctx.res?.setHeader(
       "Set-Cookie",
-      `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`
+      `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
     );
 
+    console.log("[Admin Logout] Logout successful");
+    
     return {
       success: true,
       message: "Logout successful",
