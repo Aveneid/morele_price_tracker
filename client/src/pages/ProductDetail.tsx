@@ -1,12 +1,7 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import { Loader2, ExternalLink, RefreshCw, Copy, Check } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw, Home, Copy, Check } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -18,13 +13,6 @@ import {
 } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { PriceAlertManager } from "./PriceAlertManager";
-
-interface ProductDetailModalProps {
-  productId: number;
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -39,19 +27,22 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export default function ProductDetailModal({
-  productId,
-  isOpen,
-  onClose,
-}: ProductDetailModalProps) {
+export default function ProductDetail() {
+  const [, setLocation] = useLocation();
+  const [match, params] = useRoute("/product/:id");
   const [copied, setCopied] = useState(false);
-  
-  const { data: product, isLoading: productLoading } =
-    trpc.products.get.useQuery({ id: productId }, { enabled: isOpen });
+
+  const productId = params?.id ? parseInt(params.id) : null;
+
+  const { data: product, isLoading: productLoading } = trpc.products.get.useQuery(
+    { id: productId || 0 },
+    { enabled: !!productId }
+  );
+
   const { data: priceHistory, isLoading: historyLoading } =
     trpc.products.priceHistory.useQuery(
-      { productId },
-      { enabled: isOpen && !!product }
+      { productId: productId || 0 },
+      { enabled: !!productId && !!product }
     );
 
   const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
@@ -62,14 +53,6 @@ export default function ProductDetailModal({
       toast.error(err.message || "Failed to request price check");
     },
   });
-
-  const handleCopyShareLink = () => {
-    const shareUrl = `${window.location.origin}/product/${productId}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    toast.success("Share link copied to clipboard!");
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const formatPrice = (cents: number | null) => {
     if (cents === null) return "N/A";
@@ -92,6 +75,14 @@ export default function ProductDetailModal({
     return Math.ceil(15 - minutesSinceLastCheck);
   };
 
+  const handleCopyLink = () => {
+    const shareUrl = `${window.location.origin}/product/${productId}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast.success("Share link copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const chartData = (priceHistory || [])
     .slice()
     .reverse()
@@ -101,20 +92,77 @@ export default function ProductDetailModal({
       timestamp: entry.recordedAt,
     }));
 
+  if (!match) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">Price Tracker</h1>
+            <Button
+              onClick={() => setLocation("/dashboard")}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Home className="w-4 h-4" />
+              Back to Dashboard
+            </Button>
+          </div>
+        </header>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+          <p className="text-gray-600 text-lg">Product not found. Please check the link.</p>
+          <Button
+            onClick={() => setLocation("/dashboard")}
+            className="mt-4 bg-blue-600 hover:bg-blue-700"
+          >
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Price Tracker</h1>
+          <Button
+            onClick={() => setLocation("/dashboard")}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Home className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {productLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
           </div>
-        ) : product ? (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-xl">{product.name}</DialogTitle>
-            </DialogHeader>
+        ) : !product ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <p className="text-gray-600 text-lg">Product not found.</p>
+            <Button
+              onClick={() => setLocation("/dashboard")}
+              className="mt-4 bg-blue-600 hover:bg-blue-700"
+            >
+              Go to Dashboard
+            </Button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            {/* Product Header */}
+            <div className="border-b border-gray-200 p-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+              <p className="text-gray-600">{product.category || "Uncategorized"}</p>
+            </div>
 
-            <div className="space-y-6">
+            {/* Main Content */}
+            <div className="p-6 space-y-6">
               {/* Product Image and Price Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Image */}
@@ -176,22 +224,20 @@ export default function ProductDetailModal({
                     </div>
                   </div>
 
-                  {product.category && (
-                    <div>
-                      <p className="text-xs text-gray-600 font-semibold uppercase">
-                        Category
-                      </p>
-                      <p className="text-lg font-bold text-gray-700 mt-1">
-                        {product.category}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-xs text-gray-600 font-semibold uppercase">
+                      Last Checked
+                    </p>
+                    <p className="text-lg font-bold text-gray-700 mt-1">
+                      {product.lastCheckedAt
+                        ? new Date(product.lastCheckedAt).toLocaleString("pl-PL")
+                        : "Never"}
+                    </p>
+                  </div>
 
                   {canRequestPriceCheck() ? (
                     <Button
-                      onClick={() =>
-                        priceCheckMutation.mutate({ productId })
-                      }
+                      onClick={() => priceCheckMutation.mutate({ productId: product.id })}
                       disabled={priceCheckMutation.isPending}
                       className="w-full mt-4 bg-green-600 hover:bg-green-700"
                     >
@@ -213,7 +259,7 @@ export default function ProductDetailModal({
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2">
                     <Button
                       onClick={() => window.open(product.url, "_blank")}
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -222,7 +268,7 @@ export default function ProductDetailModal({
                       View on morele.net
                     </Button>
                     <Button
-                      onClick={handleCopyShareLink}
+                      onClick={handleCopyLink}
                       variant="outline"
                       className="flex-1"
                     >
@@ -256,7 +302,7 @@ export default function ProductDetailModal({
                     No price history available yet
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis
@@ -281,41 +327,10 @@ export default function ProductDetailModal({
                   </ResponsiveContainer>
                 )}
               </div>
-
-              {/* Price Alerts Manager */}
-              <PriceAlertManager productId={productId} currentPrice={product.currentPrice || 0} />
-
-              {/* Product Details */}
-              <div className="border-t pt-4 text-sm text-gray-600 space-y-2">
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Product Code:</strong>
-                  </span>
-                  <span>{product.productCode || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Last Checked:</strong>
-                  </span>
-                  <span>
-                    {product.lastCheckedAt
-                      ? new Date(product.lastCheckedAt).toLocaleString("pl-PL")
-                      : "Never"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>
-                    <strong>Added:</strong>
-                  </span>
-                  <span>
-                    {new Date(product.createdAt).toLocaleString("pl-PL")}
-                  </span>
-                </div>
-              </div>
             </div>
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
