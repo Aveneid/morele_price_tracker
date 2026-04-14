@@ -33,6 +33,7 @@ import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
 import { debugLog, debugError, debugTable } from "./_core/debugLogger";
+import { extractDomain, isSameDomain } from "./urlUtils";
 import {
   getAllJobs,
   getJobById,
@@ -487,6 +488,40 @@ export const appRouter = router({
     getAll: publicProcedure.query(async () => {
       return getAllWebsiteTemplates();
     }),
+
+    checkExists: publicProcedure
+      .input(z.object({ productUrl: z.string().url() }))
+      .query(async ({ input }) => {
+        const allTemplates = await getAllWebsiteTemplates();
+        
+        // Find template that matches the product URL domain
+        const matchingTemplate = allTemplates.find((template) => {
+          return isSameDomain(template.websiteUrl, input.productUrl);
+        });
+
+        if (!matchingTemplate) {
+          return { exists: false, template: null };
+        }
+
+        // Parse selectors from JSON string
+        let selectors = {};
+        try {
+          selectors = JSON.parse(matchingTemplate.selectors);
+        } catch (e) {
+          debugError("Failed to parse template selectors", e);
+        }
+
+        return {
+          exists: true,
+          template: {
+            id: matchingTemplate.id,
+            websiteName: matchingTemplate.websiteName,
+            selectors,
+            defaultCategory: matchingTemplate.defaultCategory,
+            defaultImageUrl: matchingTemplate.defaultImageUrl,
+          },
+        };
+      }),
 
     create: publicProcedure
       .input(

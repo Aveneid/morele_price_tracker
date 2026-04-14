@@ -327,3 +327,13 @@
 - [ ] Store template configuration in database
 - [ ] Apply template to subsequent scrapes
 - [ ] Test template system with various websites
+
+
+## Template Detection Feature (feature/website-template branch)
+- [x] Create URL extraction utility function
+- [x] Implement template detection logic in product scraping
+- [x] Add checkTemplateExists procedure to templates router
+- [x] Return template data if found, null if not found
+- [x] Test template detection with various URLs
+- [x] Create useTemplateDetection React hook for frontend
+- [x] Implement template detection query in tRPC router
