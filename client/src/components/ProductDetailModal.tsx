@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Loader2, ExternalLink, RefreshCw, Copy, Check } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw, Copy, Check, TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -100,6 +100,44 @@ export default function ProductDetailModal({
       price: entry.price / 100,
       timestamp: entry.recordedAt,
     }));
+
+  // Calculate price analytics
+  const calculatePriceAnalytics = () => {
+    if (!priceHistory || priceHistory.length === 0) {
+      return { sevenDayAvg: null, thirtyDayAvg: null, sevenDayChange: null, thirtyDayChange: null };
+    }
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const sevenDayPrices = priceHistory.filter(
+      (entry: any) => new Date(entry.recordedAt) >= sevenDaysAgo
+    );
+    const thirtyDayPrices = priceHistory.filter(
+      (entry: any) => new Date(entry.recordedAt) >= thirtyDaysAgo
+    );
+
+    const sevenDayAvg =
+      sevenDayPrices.length > 0
+        ? sevenDayPrices.reduce((sum: number, entry: any) => sum + entry.price / 100, 0) /
+          sevenDayPrices.length
+        : null;
+
+    const thirtyDayAvg =
+      thirtyDayPrices.length > 0
+        ? thirtyDayPrices.reduce((sum: number, entry: any) => sum + entry.price / 100, 0) /
+          thirtyDayPrices.length
+        : null;
+
+    const currentPrice = product?.currentPrice ? product.currentPrice / 100 : 0;
+    const sevenDayChange = sevenDayAvg ? ((currentPrice - sevenDayAvg) / sevenDayAvg) * 100 : null;
+    const thirtyDayChange = thirtyDayAvg ? ((currentPrice - thirtyDayAvg) / thirtyDayAvg) * 100 : null;
+
+    return { sevenDayAvg, thirtyDayAvg, sevenDayChange, thirtyDayChange };
+  };
+
+  const analytics = calculatePriceAnalytics();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -241,6 +279,60 @@ export default function ProductDetailModal({
                   </div>
                 </div>
               </div>
+
+              {/* Price Analytics */}
+              {analytics.sevenDayAvg !== null || analytics.thirtyDayAvg !== null ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  {analytics.sevenDayAvg !== null && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-gray-700">7-Day Average</h3>
+                        {analytics.sevenDayChange !== null && (
+                          <div
+                            className={`flex items-center gap-1 text-sm font-semibold ${
+                              analytics.sevenDayChange > 0 ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {analytics.sevenDayChange > 0 ? (
+                              <TrendingUp className="w-4 h-4" />
+                            ) : (
+                              <TrendingDown className="w-4 h-4" />
+                            )}
+                            {Math.abs(analytics.sevenDayChange).toFixed(2)}%
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {analytics.sevenDayAvg.toFixed(2)} zł
+                      </p>
+                    </div>
+                  )}
+                  {analytics.thirtyDayAvg !== null && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-gray-700">30-Day Average</h3>
+                        {analytics.thirtyDayChange !== null && (
+                          <div
+                            className={`flex items-center gap-1 text-sm font-semibold ${
+                              analytics.thirtyDayChange > 0 ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {analytics.thirtyDayChange > 0 ? (
+                              <TrendingUp className="w-4 h-4" />
+                            ) : (
+                              <TrendingDown className="w-4 h-4" />
+                            )}
+                            {Math.abs(analytics.thirtyDayChange).toFixed(2)}%
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {analytics.thirtyDayAvg.toFixed(2)} zł
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {/* Price History Chart */}
               <div className="border-t pt-6">
