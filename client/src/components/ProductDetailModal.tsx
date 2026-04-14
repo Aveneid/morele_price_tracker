@@ -103,7 +103,7 @@ export default function ProductDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl w-full max-h-[95vh] overflow-y-auto">
         {productLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
@@ -213,7 +213,7 @@ export default function ProductDetailModal({
                     </div>
                   )}
 
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-col sm:flex-row gap-2 mt-2">
                     <Button
                       onClick={() => window.open(product.url, "_blank")}
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -224,7 +224,7 @@ export default function ProductDetailModal({
                     <Button
                       onClick={handleCopyShareLink}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 whitespace-nowrap"
                     >
                       {copied ? (
                         <>

@@ -296,6 +296,8 @@
 
 
 ## Product Dialog Width Fix (Current Session)
-- [x] Increase product detail modal width for better content visibility
+- [x] Increase product detail modal width from max-w-4xl to max-w-5xl
+- [x] Fix button layout to be responsive (stack on mobile, side-by-side on desktop)
 - [x] Ensure share button and all content is properly visible
+- [x] Add whitespace-nowrap to prevent button text wrapping
 - [x] Test modal responsiveness on different screen sizes
