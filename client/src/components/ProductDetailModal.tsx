@@ -251,10 +251,10 @@ export default function ProductDetailModal({
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <div className="flex flex-col gap-2 mt-2">
                     <Button
                       onClick={() => window.open(product.url, "_blank")}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View on morele.net
@@ -262,7 +262,7 @@ export default function ProductDetailModal({
                     <Button
                       onClick={handleCopyShareLink}
                       variant="outline"
-                      className="flex-1 whitespace-nowrap"
+                      className="w-full whitespace-nowrap"
                     >
                       {copied ? (
                         <>
