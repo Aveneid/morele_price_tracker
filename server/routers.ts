@@ -21,6 +21,12 @@ import {
   getUserPriceAlerts,
   getProductUserAlerts,
   deleteUserPriceAlert,
+  getWebsiteTemplateByUrl,
+  getWebsiteTemplateById,
+  getAllWebsiteTemplates,
+  createWebsiteTemplate,
+  updateWebsiteTemplate,
+  deleteWebsiteTemplate,
 } from "./db";
 import { products, priceHistory } from "../drizzle/schema";
 import { scrapeProduct } from "./scraper";
@@ -458,6 +464,98 @@ export const appRouter = router({
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Failed to delete price alert",
+          });
+        }
+        return { success: true };
+      }),
+  }),
+
+  // ============ WEBSITE TEMPLATES ROUTER ============
+  templates: router({
+    getByUrl: publicProcedure
+      .input(z.object({ websiteUrl: z.string().url() }))
+      .query(async ({ input }) => {
+        return getWebsiteTemplateByUrl(input.websiteUrl);
+      }),
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return getWebsiteTemplateById(input.id);
+      }),
+
+    getAll: publicProcedure.query(async () => {
+      return getAllWebsiteTemplates();
+    }),
+
+    create: publicProcedure
+      .input(
+        z.object({
+          websiteUrl: z.string().url(),
+          websiteName: z.string(),
+          selectors: z.record(z.string(), z.string()),
+          defaultCategory: z.string().optional(),
+          defaultImageUrl: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const template = await createWebsiteTemplate({
+          websiteUrl: input.websiteUrl,
+          websiteName: input.websiteName,
+          selectors: JSON.stringify(input.selectors),
+          defaultCategory: input.defaultCategory,
+          defaultImageUrl: input.defaultImageUrl,
+          isActive: true,
+        });
+
+        if (!template) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create template",
+          });
+        }
+
+        return template;
+      }),
+
+    update: publicProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          websiteName: z.string().optional(),
+          selectors: z.record(z.string(), z.string()).optional(),
+          defaultCategory: z.string().optional(),
+          defaultImageUrl: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        const updateData: any = { ...data };
+
+        if (data.selectors) {
+          updateData.selectors = JSON.stringify(data.selectors);
+        }
+
+        const template = await updateWebsiteTemplate(id, updateData);
+
+        if (!template) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Template not found",
+          });
+        }
+
+        return template;
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const success = await deleteWebsiteTemplate(input.id);
+        if (!success) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to delete template",
           });
         }
         return { success: true };

@@ -25,6 +25,9 @@ import {
   userPriceAlerts,
   UserPriceAlert,
   InsertUserPriceAlert,
+  websiteTemplates,
+  WebsiteTemplate,
+  InsertWebsiteTemplate,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { debugLog, debugError } from "./_core/debugLogger";
@@ -572,4 +575,87 @@ export async function getActiveAlertsForProduct(
         eq(userPriceAlerts.isActive, true)
       )
     );
+}
+
+
+// ============ WEBSITE TEMPLATES QUERIES ============
+
+export async function getWebsiteTemplateByUrl(
+  websiteUrl: string
+): Promise<WebsiteTemplate | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(websiteTemplates)
+    .where(eq(websiteTemplates.websiteUrl, websiteUrl))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getWebsiteTemplateById(
+  id: number
+): Promise<WebsiteTemplate | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(websiteTemplates)
+    .where(eq(websiteTemplates.id, id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getAllWebsiteTemplates(): Promise<WebsiteTemplate[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(websiteTemplates)
+    .where(eq(websiteTemplates.isActive, true))
+    .orderBy(desc(websiteTemplates.createdAt));
+}
+
+export async function createWebsiteTemplate(
+  data: InsertWebsiteTemplate
+): Promise<WebsiteTemplate | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .insert(websiteTemplates)
+    .values(data)
+    .$returningId();
+  if (result.length === 0) return null;
+
+  const templateId = result[0].id;
+  return getWebsiteTemplateById(templateId);
+}
+
+export async function updateWebsiteTemplate(
+  id: number,
+  data: Partial<InsertWebsiteTemplate>
+): Promise<WebsiteTemplate | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  await db
+    .update(websiteTemplates)
+    .set(data)
+    .where(eq(websiteTemplates.id, id));
+
+  return getWebsiteTemplateById(id);
+}
+
+export async function deleteWebsiteTemplate(id: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  await db.delete(websiteTemplates).where(eq(websiteTemplates.id, id));
+  return true;
 }

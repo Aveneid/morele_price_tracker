@@ -314,3 +314,16 @@
 
 ## UI Layout Adjustments (Current Session)
 - [x] Move share button below "View on morele.net" button in product modal
+
+
+## Website Template System (feature/website-template branch)
+- [x] Create template system for website scraping configuration
+- [x] Add database schema for website templates
+- [x] Add template CRUD procedures to tRPC router
+- [ ] Add form for users to input product details on first scrape
+- [ ] Implement product price input field
+- [ ] Implement product category selection dropdown
+- [ ] Add product image upload with placeholder fallback
+- [ ] Store template configuration in database
+- [ ] Apply template to subsequent scrapes
+- [ ] Test template system with various websites

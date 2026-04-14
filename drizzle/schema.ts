@@ -143,3 +143,20 @@ export const userPriceAlerts = mysqlTable("userPriceAlerts", {
 
 export type UserPriceAlert = typeof userPriceAlerts.$inferSelect;
 export type InsertUserPriceAlert = typeof userPriceAlerts.$inferInsert;
+
+// ============ WEBSITE TEMPLATES ============
+
+export const websiteTemplates = mysqlTable("websiteTemplates", {
+  id: int("id").autoincrement().primaryKey(),
+  websiteUrl: varchar("websiteUrl", { length: 2048 }).notNull().unique(),
+  websiteName: varchar("websiteName", { length: 255 }).notNull(),
+  selectors: text("selectors").notNull(),
+  defaultCategory: varchar("defaultCategory", { length: 255 }),
+  defaultImageUrl: text("defaultImageUrl"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type WebsiteTemplate = typeof websiteTemplates.$inferSelect;
+export type InsertWebsiteTemplate = typeof websiteTemplates.$inferInsert;
