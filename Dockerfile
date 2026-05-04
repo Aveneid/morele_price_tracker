@@ -19,8 +19,8 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and MySQL client
+RUN npm install -g pnpm && apk add --no-cache mysql-client
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./

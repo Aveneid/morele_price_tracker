@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      DATABASE_URL: ${DATABASE_URL:-mysql://tracker:trackerpass@db:3306/morele_tracker?ssl={"rejectUnauthorized":false}}
+      DATABASE_URL: mysql://${DB_USER:-tracker}:${DB_PASSWORD:-trackerpass}@db:3306/${DB_NAME:-morele_tracker}
       JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key-change-in-production}
       VITE_APP_ID: ${VITE_APP_ID:-}
       OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-}
@@ -61,9 +61,16 @@ services:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - ./drizzle:/app/drizzle
+      - ./logs:/app/logs
     networks:
       - morele-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"] 
+      timeout: 10s
+      retries: 3
+      interval: 30s
+      start_period: 40s
 
 volumes:
   db_data:

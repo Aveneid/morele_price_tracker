@@ -350,3 +350,14 @@
 - [x] Add email troubleshooting guide
 - [ ] Test Docker build and deployment
 - [ ] Verify email notifications work in Docker environment
+
+
+## MySQL Docker Integration (Latest)
+- [x] Verified application uses drizzle-orm/mysql2 driver
+- [x] Confirmed MySQL schema uses mysqlTable() and mysqlEnum()
+- [x] Updated Dockerfile to include mysql-client tools
+- [x] Updated docker-compose.yml with simplified DATABASE_URL
+- [x] Added health checks to application service
+- [x] Added logs volume for debugging
+- [x] Verified TypeScript compilation passes
+- [x] Confirmed dev server running with MySQL queries
