@@ -61,6 +61,14 @@ VITE_ANALYTICS_WEBSITE_ID=your-website-id
 
 # HMR Configuration (for development)
 VITE_HMR_HOST=localhost
+
+# Email Configuration (SMTP Settings for Price Alerts)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your_email@gmail.com
+MAIL_PASSWORD=your_app_password
+MAIL_FROM=noreply@moreletracker.com
+MAIL_USE_TLS=true
 ```
 
 ### 3. Build and Run with Docker Compose
@@ -80,6 +88,43 @@ docker-compose down
 ```
 
 The application will be available at `http://localhost:3000`
+
+## Email Configuration
+
+The application supports SMTP-based email notifications for price alerts. Configure your email server in the `.env` file:
+
+### Gmail Configuration
+
+```bash
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your_email@gmail.com
+MAIL_PASSWORD=your_app_password  # Use App Password, not your regular password
+MAIL_FROM=noreply@moreletracker.com
+MAIL_USE_TLS=true
+```
+
+**Note**: For Gmail, you need to:
+1. Enable 2-Factor Authentication
+2. Generate an [App Password](https://support.google.com/accounts/answer/185833)
+3. Use the App Password in `MAIL_PASSWORD`
+
+### Generic SMTP Server
+
+```bash
+MAIL_HOST=smtp.your-server.com
+MAIL_PORT=587
+MAIL_USER=your_username
+MAIL_PASSWORD=your_password
+MAIL_FROM=noreply@moreletracker.com
+MAIL_USE_TLS=true
+```
+
+### Email Features
+
+- **Price Drop Alerts**: Sends HTML-formatted emails when product prices drop
+- **Rich Templates**: Professional email formatting with product details
+- **Configurable Sender**: Set custom sender email address
 
 ## Docker Architecture
 
@@ -316,3 +361,107 @@ For issues or questions about Docker setup, please check:
 1. Docker logs: `docker-compose logs app`
 2. Database connectivity: `docker-compose exec db mysql -u tracker -p`
 3. Environment variables: Verify `.env` file is properly configured
+
+
+## Email Troubleshooting
+
+### Email Service Not Initialized
+
+If you see a warning about email configuration being incomplete:
+
+```
+[Email Service] Email configuration incomplete, email notifications disabled
+```
+
+**Solution**: Verify all email environment variables are set in `.env`:
+- `MAIL_HOST` - SMTP server hostname
+- `MAIL_PORT` - SMTP server port
+- `MAIL_USER` - SMTP username
+- `MAIL_PASSWORD` - SMTP password
+
+### Authentication Failed
+
+If you see authentication errors in logs:
+
+```
+[Email Service] Failed to initialize: Invalid login
+```
+
+**Solutions**:
+1. Verify credentials are correct
+2. For Gmail, use App Password instead of regular password
+3. Check if SMTP server requires different port (465 for SSL, 587 for TLS)
+4. Ensure firewall allows outbound SMTP connections
+
+### Email Not Sending
+
+If emails are not being sent:
+
+1. Check application logs for errors:
+   ```bash
+   docker-compose logs app | grep "Email Service"
+   ```
+
+2. Verify email configuration:
+   ```bash
+   docker-compose exec app env | grep MAIL_
+   ```
+
+3. Test SMTP connection from container:
+   ```bash
+   docker-compose exec app node -e "
+   const nodemailer = require('nodemailer');
+   const transporter = nodemailer.createTransport({
+     host: process.env.MAIL_HOST,
+     port: process.env.MAIL_PORT,
+     secure: process.env.MAIL_USE_TLS === 'true' ? false : true,
+     auth: {
+       user: process.env.MAIL_USER,
+       pass: process.env.MAIL_PASSWORD
+     }
+   });
+   transporter.verify((err, success) => {
+     if (err) console.log('Error:', err);
+     else console.log('SMTP connection successful');
+   });
+   "
+   ```
+
+### Testing Email Configuration
+
+To test if emails are being sent correctly:
+
+1. Trigger a price drop alert in the application
+2. Check application logs for email sending status
+3. Verify email was received in the recipient's inbox
+4. Check spam/junk folder if email is not in inbox
+
+## Email Service Features
+
+The email service includes:
+
+- **Automatic Initialization**: Initializes on first use
+- **Error Handling**: Graceful handling of SMTP errors
+- **HTML Templates**: Professional email formatting
+- **Logging**: Detailed logging of email operations
+- **Configuration Validation**: Validates email settings on startup
+
+## Production Email Setup
+
+For production deployment:
+
+1. **Use a professional email service**:
+   - SendGrid
+   - AWS SES
+   - Mailgun
+   - Your own SMTP server
+
+2. **Configure SPF and DKIM records** for your domain
+
+3. **Use environment variables** for sensitive credentials
+
+4. **Monitor email delivery** and bounce rates
+
+5. **Set up email templates** for different notification types
+
+6. **Test email configuration** before going live

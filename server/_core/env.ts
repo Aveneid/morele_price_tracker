@@ -9,4 +9,10 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   adminUsername: process.env.ADMIN_USERNAME ?? "admin",
   adminPassword: process.env.ADMIN_PASSWORD ?? "admin123",
+  mailHost: process.env.MAIL_HOST ?? "",
+  mailPort: process.env.MAIL_PORT ?? "587",
+  mailUser: process.env.MAIL_USER ?? "",
+  mailPassword: process.env.MAIL_PASSWORD ?? "",
+  mailFrom: process.env.MAIL_FROM ?? "noreply@moreletracker.com",
+  mailUseTls: process.env.MAIL_USE_TLS ?? "true",
 };

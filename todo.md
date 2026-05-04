@@ -337,3 +337,16 @@
 - [x] Test template detection with various URLs
 - [x] Create useTemplateDetection React hook for frontend
 - [x] Implement template detection query in tRPC router
+
+
+## Docker & Email Setup (Current Session)
+- [x] Add email server environment variables to ENV configuration
+- [x] Create email notification service (emailService.ts) with nodemailer
+- [x] Install nodemailer and @types/nodemailer dependencies
+- [x] Update Dockerfile with proper build configuration and entry point
+- [x] Update docker-compose.yml with email environment variables
+- [x] Create comprehensive Docker setup documentation
+- [x] Add email configuration examples (Gmail, generic SMTP)
+- [x] Add email troubleshooting guide
+- [ ] Test Docker build and deployment
+- [ ] Verify email notifications work in Docker environment

@@ -49,6 +49,14 @@ services:
       VITE_ANALYTICS_WEBSITE_ID: ${VITE_ANALYTICS_WEBSITE_ID:-}
       VITE_APP_TITLE: ${VITE_APP_TITLE:-Morele Price Tracker}
       VITE_APP_LOGO: ${VITE_APP_LOGO:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@moreletracker.com}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
