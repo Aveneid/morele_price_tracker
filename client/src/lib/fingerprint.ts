@@ -3,9 +3,20 @@
  * Generates a unique identifier for anonymous users based on browser characteristics
  */
 
-import { v5 as uuidv5 } from 'uuid';
-
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Standard UUID namespace
+/**
+ * Simple hash function to generate a unique ID from a string
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to hex string and pad with zeros
+  const hex = Math.abs(hash).toString(16);
+  return 'fp-' + hex.padStart(8, '0');
+}
 
 /**
  * Generate a browser fingerprint by combining various browser characteristics
@@ -31,8 +42,8 @@ function generateFingerprint(): string {
   // Create a fingerprint string from all components
   const fingerprintString = JSON.stringify(components);
   
-  // Generate a UUID v5 from the fingerprint string
-  const fingerprint = uuidv5(fingerprintString, NAMESPACE);
+  // Generate a hash from the fingerprint string
+  const fingerprint = simpleHash(fingerprintString);
   
   return fingerprint;
 }

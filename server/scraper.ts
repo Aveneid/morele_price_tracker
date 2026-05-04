@@ -1,4 +1,4 @@
-import axios from "axios";
+// Using native fetch instead of axios
 import * as cheerio from "cheerio";
 
 /**
@@ -52,7 +52,10 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
 
   try {
     // Fetch the page with proper headers to avoid blocking
-    const response = await axios.get(url, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -63,10 +66,16 @@ export async function scrapeProduct(url: string, userEmail?: string): Promise<{
         Connection: "keep-alive",
         "Upgrade-Insecure-Requests": "1",
       },
-      timeout: 15000,
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
-    const html = response.data;
+    const html = await response.text();
     const $ = cheerio.load(html);
 
     // Extract product name from h1 or title

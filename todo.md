@@ -361,3 +361,14 @@
 - [x] Added logs volume for debugging
 - [x] Verified TypeScript compilation passes
 - [x] Confirmed dev server running with MySQL queries
+
+
+## Code Cleanup & Dependency Optimization (Latest)
+- [x] Removed axios dependency - replaced with native fetch in scraper.ts
+- [x] Removed uuid dependency - replaced with simple hash function in fingerprint.ts
+- [x] Removed papaparse dependency - not used in codebase
+- [x] Removed puppeteer dependency - not used in codebase
+- [x] Rewrote sdk.ts to use native fetch instead of axios
+- [x] Removed wouter patch from pnpm config
+- [x] Verified TypeScript compilation passes
+- [x] Verified dev server running successfully
