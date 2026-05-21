@@ -1,34 +1,69 @@
+# Dependencies - will be installed fresh in Docker
 node_modules
-npm-debug.log
-.git
-.gitignore
+.pnpm-store
+
+# Lock files - DO NOT IGNORE (needed for reproducible builds)
+# pnpm-lock.yaml - REQUIRED
+# package-lock.json - REQUIRED (if using npm)
+
+# Environment files - DO NOT COPY (set via docker run -e)
 .env
 .env.local
 .env.*.local
+.env.example
+
+# Build artifacts - will be rebuilt
 dist
 build
-.DS_Store
-*.log
+.turbo
+out
+
+# Development files - not needed in production
 .vscode
 .idea
 .next
-out
-.turbo
 coverage
 .nyc_output
 *.tsbuildinfo
-.pnpm-store
-yarn.lock
-package-lock.json
-.vercel
-.env.example
-README.md
-LICENSE
+
+# Logs
+npm-debug.log
+*.log
+
+# OS files
+.DS_Store
+.gitkeep
+
+# Git and CI/CD - not needed in image
+.git
+.gitignore
 .github
 .gitlab-ci.yml
 .circleci
+
+# Documentation and config - not needed in production
+README.md
+LICENSE
+DOCKER_SETUP.md
+DOCKER_RUN.md
+
+# Docker files - not needed inside image
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# Screenshots and temp files
 screenshots
 terminal_full_output
+*.tmp
+*.temp
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Patches directory (if it exists)
+patches/
