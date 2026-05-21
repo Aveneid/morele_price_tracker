@@ -1,0 +1,48 @@
+{
+  "build_command": "pnpm run build",
+  "capabilities": [
+    "db",
+    "server",
+    "user"
+  ],
+  "dev_command": "pnpm run dev",
+  "env_vars": {
+    "DATABASE_URL": "mysql://3sYD7pt8wPuFWH3.root:v1V1u9l6zwek8O6fqvsq@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/Y9rYu3gSkPyNmxB5akedhP?ssl={\"rejectUnauthorized\":true}"
+  },
+  "experiments": null,
+  "git_remote": {
+    "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663221297223/Y9rYu3gSkPyNmxB5akedhP",
+    "access_key_id": "ASIAZV3A2ECZHIMHTNLR",
+    "secret_access_key": "EotH0H3JblkwLPOircdkEEZd9kcjipj0B02gOOEe",
+    "session_token": "IQoJb3JpZ2luX2VjEDkaCXVzLWVhc3QtMSJGMEQCICPHZ76KsZqmkvIyL6oqBMokDdm3tQSc8ZHOVkVriopzAiAL5mVYCT+qGUu8lNmFIc5fizI7xnMDAkmmXtU4HQqb7ir2AwgBEAQaDDY2NTM4NjA5ODg2NiIMIvS2rhdI2QYxF9k0KtMDjqKyMWFwlFFvI+DSW0m4wpK4T+no+WiYKlqtz6sf0MFUuaw/03w9IkH+gSPy3t5AdRkltpJvDNl7LiNMhZFwiD/dF1craXXNVVEhXEOIeWGRqFne+GrBmwFa8m8cYmaDudO1/HTgLoBm4SpLgSBFm9aas3qwrUj8fUyeB7onHp+eexJcNFks3eIqPRf2bw6DTyKQsGnyphbW88naxGIzEoVQVtFzHecVEbsaMQw6HilUblWyaLUXe8SnX9nFhsyYM4ip7yDAvdYlNA2CbiM/e9zICAEN2D5bzOsxKgzUZYV606iy6vFqB+nwEQ62j36DWTNnydt9ea27IBKeoVTiBdeNtrDKUZF8PfpM3XGu/ZAngwXblS2OxltJmyAsw6Sdadmn09HNhQdoTYzisEmMFWpZ4CmBh6R09gVbJCtfmg4+R9w4kPEMgylc1V8ZRSvpYsTkSNF6y6wc+6woDrIJYyCx+5ZYJh+h+mndyEjZXMDvVPOYVv9/yeRLVUCGy/FZ1SVuMmDg6Dv2Lcx07a+vaIMO9bjf4/9MC1ioZ7m0A1T75T/k7Ods1FoSwdKAT6AKxeyRHxAW3NWsGNuw4caeh1W1f5O5HSYTRLLZ5PS2VC6X3+Iw4f660AY6ngHqVn4hr1chnnUm4+T9SE3lNb7JA1ZJGSmL/iFwCQv33C+zH2E45KBI5tMxC7r/Imxyq7BwVC35jrmsfnTMvEVadt60LOvzDXs51eikbMiMakAGAJ0hQFUVOJhwCDwPnbuHpP7k/R1TVVo9407k/8kAqCt++xRxS6Do2PLB5JDznlpvev6wtq4oR2PPy2I8YvAyDkZHbi1dI/qa7mVXKg==",
+    "expiration": "2026-05-21T20:16:33.000Z"
+  },
+  "name": "morele_price_tracker",
+  "path": "/home/ubuntu/morele_price_tracker",
+  "port": 3000,
+  "secrets": {
+    "BUILT_IN_FORGE_API_KEY": "mXYtzb8JbbsZqmNVi93T4B",
+    "BUILT_IN_FORGE_API_URL": "https://forge.manus.ai",
+    "JWT_SECRET": "Z9uQYVNds7Mazg4q37UEHa",
+    "MAIL_FROM": "from",
+    "MAIL_HOST": "host",
+    "MAIL_PASSWORD": "password",
+    "MAIL_PORT": "port",
+    "MAIL_USER": "user",
+    "MAIL_USE_TLS": "false",
+    "OAUTH_SERVER_URL": "https://api.manus.im",
+    "OWNER_NAME": "Sigar n",
+    "OWNER_OPEN_ID": "PafrRpprodVf6DDYKQZ3Ve",
+    "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
+    "VITE_ANALYTICS_WEBSITE_ID": "5d4c2d0a-ea0b-4a39-9e47-66c1bd6170c4",
+    "VITE_APP_ID": "Y9rYu3gSkPyNmxB5akedhP",
+    "VITE_APP_LOGO": "https://files.manuscdn.com/user_upload_by_module/web_dev_logo/310519663221297223/FdkcswOJDTUssrsG.png",
+    "VITE_APP_TITLE": "Morele Price Tracker",
+    "VITE_FRONTEND_FORGE_API_KEY": "3UGwLMbE4qGd6cWu9rx5hs",
+    "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
+    "VITE_HMR_HOST": "3000-iolirhj8oa7s6kxa3udwg-40322a7f.us2.manus.computer",
+    "VITE_OAUTH_PORTAL_URL": "https://manus.im"
+  },
+  "template_id": "web-db-user",
+  "test_command": "pnpm test"
+}
