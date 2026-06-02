@@ -381,6 +381,6 @@
 - [x] Update admin router with login/logout procedures
 - [x] Update AdminLogin component for local auth
 - [x] Add admin session storage and management
-- [ ] Test database initialization script with MySQL
-- [ ] Test admin login with default credentials (admin/admin123)
-- [ ] Test admin session persistence across page refreshes
+- [x] Test database initialization script with MySQL
+- [x] Test admin login with default credentials (admin/admin123)
+- [x] Test admin session persistence across page refreshes
