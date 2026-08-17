@@ -61,3 +61,12 @@
 ## Historical Record
 
 The previous, highly repetitive TODO file is preserved verbatim as `todo-history.md`. It is retained for audit/history purposes and is not an active list of requirements for this feature.
+
+
+## Accessibility Bug Fix — Dashboard DialogContent
+
+- [x] Audit every dashboard Radix DialogContent usage for a valid DialogTitle.
+- [x] Add visually hidden fallback titles where a dialog has no visible title.
+- [x] Verify the dashboard modal flow no longer reports the DialogTitle accessibility error.
+- [x] Run TypeScript, Vitest, and production build checks.
+- [x] Save a checkpoint for the accessibility fix.

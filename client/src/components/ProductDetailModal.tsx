@@ -178,16 +178,18 @@ export default function ProductDetailModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+        <DialogHeader className={product ? undefined : "sr-only"}>
+          <DialogTitle className={product ? "text-xl" : undefined}>
+            {product?.name ?? "Product details"}
+          </DialogTitle>
+        </DialogHeader>
+
         {productLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
           </div>
         ) : product ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="text-xl">{product.name}</DialogTitle>
-            </DialogHeader>
-
             <div className="space-y-6">
               {/* Product Image and Price Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
