@@ -70,3 +70,15 @@ The previous, highly repetitive TODO file is preserved verbatim as `todo-history
 - [x] Verify the dashboard modal flow no longer reports the DialogTitle accessibility error.
 - [x] Run TypeScript, Vitest, and production build checks.
 - [x] Save a checkpoint for the accessibility fix.
+
+
+## Full Historical Price Visibility and Date-Range Analysis
+
+- [x] Audit why the product detail history is limited to the last 30 days.
+- [x] Confirm product 90003 history count and oldest/newest stored timestamps without changing database data.
+- [x] Add date-range controls to the product detail modal.
+- [x] Apply the selected date range to the chart and visible history summary.
+- [x] Apply the selected date range to min/max, volatility, and trend analytics.
+- [x] Make CSV export follow the selected date range and report the exported record count.
+- [x] Add tests for date-range filtering and empty/out-of-range results.
+- [x] Validate product 90003 in the browser and save a checkpoint.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, RefreshCw, Home, Copy, Check } from "lucide-react";
@@ -13,6 +13,12 @@ import {
 } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import {
+  filterPriceHistoryByRange,
+  getPriceHistoryRange,
+  getPriceHistoryRangeLabel,
+  type PriceHistoryRangePreset,
+} from "@/lib/priceHistoryRange";
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -31,8 +37,23 @@ export default function ProductDetail() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/product/:id");
   const [copied, setCopied] = useState(false);
+  const [rangePreset, setRangePreset] = useState<PriceHistoryRangePreset>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   const productId = params?.id ? parseInt(params.id) : null;
+  const rangeInput = useMemo(
+    () => getPriceHistoryRange(rangePreset, customStartDate, customEndDate),
+    [rangePreset, customStartDate, customEndDate],
+  );
+  const rangeLabel = getPriceHistoryRangeLabel(rangePreset, customStartDate, customEndDate);
+  const customRangeInvalid = Boolean(
+    rangePreset === "custom" && customStartDate && customEndDate && customStartDate > customEndDate,
+  );
+  const historyQueryInput = useMemo(
+    () => ({ productId: productId || 0, ...rangeInput }),
+    [productId, rangeInput],
+  );
 
   const { data: product, isLoading: productLoading } = trpc.products.get.useQuery(
     { id: productId || 0 },
@@ -41,9 +62,13 @@ export default function ProductDetail() {
 
   const { data: priceHistory, isLoading: historyLoading } =
     trpc.products.priceHistory.useQuery(
-      { productId: productId || 0 },
-      { enabled: !!productId && !!product }
+      historyQueryInput,
+      { enabled: !!productId && !!product && !customRangeInvalid }
     );
+  const visiblePriceHistory = useMemo(
+    () => filterPriceHistoryByRange(priceHistory ?? [], rangeInput),
+    [priceHistory, rangeInput],
+  );
 
   const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
     onSuccess: () => {
@@ -83,7 +108,7 @@ export default function ProductDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const chartData = (priceHistory || [])
+  const chartData = visiblePriceHistory
     .slice()
     .reverse()
     .map((entry: any) => ({
@@ -290,9 +315,51 @@ export default function ProductDetail() {
 
               {/* Price History Chart */}
               <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Price History (Last 30 Days)
-                </h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Price History ({rangeLabel})</h3>
+                    <p className="text-xs text-gray-500">{visiblePriceHistory.length} stored price records in this range.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Price history range">
+                    {(["all", "7d", "30d", "90d", "1y", "custom"] as PriceHistoryRangePreset[]).map((preset) => (
+                      <Button
+                        key={preset}
+                        type="button"
+                        size="sm"
+                        variant={rangePreset === preset ? "default" : "outline"}
+                        aria-pressed={rangePreset === preset}
+                        onClick={() => setRangePreset(preset)}
+                      >
+                        {{ all: "All", "7d": "7d", "30d": "30d", "90d": "90d", "1y": "1 year", custom: "Custom" }[preset]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {rangePreset === "custom" && (
+                  <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-sm text-gray-600">
+                      From
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(event) => setCustomStartDate(event.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="text-sm text-gray-600">
+                      To
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(event) => setCustomEndDate(event.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+                )}
+                {customRangeInvalid && (
+                  <p className="mb-4 text-sm text-red-600">The start date must be on or before the end date.</p>
+                )}
                 {historyLoading ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-gray-400" />

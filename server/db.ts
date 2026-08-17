@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, gt, sql } from "drizzle-orm";
+import { eq, and, desc, gte, gt, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -252,21 +252,27 @@ export async function getProductPriceHistoryByDate(
   productId: number,
   daysBack: number = 30
 ): Promise<PriceHistory[]> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+  return getProductPriceHistoryInRange(productId, cutoffDate);
+}
+
+export async function getProductPriceHistoryInRange(
+  productId: number,
+  startDate?: Date,
+  endDateExclusive?: Date,
+): Promise<PriceHistory[]> {
   const db = await getDb();
   if (!db) return [];
 
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+  const conditions = [eq(priceHistory.productId, productId)];
+  if (startDate) conditions.push(gte(priceHistory.recordedAt, startDate));
+  if (endDateExclusive) conditions.push(lt(priceHistory.recordedAt, endDateExclusive));
 
   return db
     .select()
     .from(priceHistory)
-    .where(
-      and(
-        eq(priceHistory.productId, productId),
-        gte(priceHistory.recordedAt, cutoffDate)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(priceHistory.recordedAt));
 }
 

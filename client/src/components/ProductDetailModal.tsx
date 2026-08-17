@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, ExternalLink, RefreshCw, Copy, Check, Download, TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart,
@@ -19,6 +19,13 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PriceAlertManager } from "./PriceAlertManager";
+import {
+  filterPriceHistoryByRange,
+  getPriceHistoryRange,
+  getPriceHistoryRangeLabel,
+  getPriceHistoryTrendWindowDays,
+  type PriceHistoryRangePreset,
+} from "@/lib/priceHistoryRange";
 
 interface ProductDetailModalProps {
   productId: number;
@@ -45,22 +52,43 @@ export default function ProductDetailModal({
   onClose,
 }: ProductDetailModalProps) {
   const [copied, setCopied] = useState(false);
-  
+  const [rangePreset, setRangePreset] = useState<PriceHistoryRangePreset>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  const rangeInput = useMemo(
+    () => getPriceHistoryRange(rangePreset, customStartDate, customEndDate),
+    [rangePreset, customStartDate, customEndDate],
+  );
+  const rangeLabel = getPriceHistoryRangeLabel(rangePreset, customStartDate, customEndDate);
+  const trendWindowDays = getPriceHistoryTrendWindowDays(rangePreset, customStartDate, customEndDate);
+  const historyQueryInput = useMemo(
+    () => ({ productId, ...rangeInput, trendWindowDays }),
+    [productId, rangeInput, trendWindowDays],
+  );
+  const customRangeInvalid = Boolean(
+    rangePreset === "custom" && customStartDate && customEndDate && customStartDate > customEndDate,
+  );
+
   const { data: product, isLoading: productLoading } =
     trpc.products.get.useQuery({ id: productId }, { enabled: isOpen });
   const { data: priceHistory, isLoading: historyLoading } =
     trpc.products.priceHistory.useQuery(
-      { productId },
-      { enabled: isOpen && !!product }
+      historyQueryInput,
+      { enabled: isOpen && !!product && !customRangeInvalid }
     );
   const { data: patternResponse, isLoading: patternsLoading } =
     trpc.products.pricePatterns.useQuery(
-      { productId },
-      { enabled: isOpen && !!product }
+      historyQueryInput,
+      { enabled: isOpen && !!product && !customRangeInvalid }
     );
   const exportHistoryQuery = trpc.products.exportHistory.useQuery(
-    { productId },
+    historyQueryInput,
     { enabled: false }
+  );
+  const visiblePriceHistory = useMemo(
+    () => filterPriceHistoryByRange(priceHistory ?? [], rangeInput),
+    [priceHistory, rangeInput],
   );
 
   const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
@@ -125,7 +153,7 @@ export default function ProductDetailModal({
     return Math.ceil(15 - minutesSinceLastCheck);
   };
 
-  const chartData = (priceHistory || [])
+  const chartData = visiblePriceHistory
     .slice()
     .reverse()
     .map((entry: any) => ({
@@ -134,40 +162,21 @@ export default function ProductDetailModal({
       timestamp: entry.recordedAt,
     }));
 
-  // Calculate price analytics
+  // Calculate a summary for the currently selected stored-history range.
   const calculatePriceAnalytics = () => {
-    if (!priceHistory || priceHistory.length === 0) {
-      return { sevenDayAvg: null, thirtyDayAvg: null, sevenDayChange: null, thirtyDayChange: null };
+    if (visiblePriceHistory.length === 0) {
+      return { average: null, change: null };
     }
 
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const sevenDayPrices = priceHistory.filter(
-      (entry: any) => new Date(entry.recordedAt) >= sevenDaysAgo
+    const ordered = visiblePriceHistory.slice().sort(
+      (a: any, b: any) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime(),
     );
-    const thirtyDayPrices = priceHistory.filter(
-      (entry: any) => new Date(entry.recordedAt) >= thirtyDaysAgo
-    );
+    const average = ordered.reduce((sum: number, entry: any) => sum + entry.price / 100, 0) / ordered.length;
+    const firstPrice = ordered[0].price / 100;
+    const lastPrice = ordered[ordered.length - 1].price / 100;
+    const change = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : null;
 
-    const sevenDayAvg =
-      sevenDayPrices.length > 0
-        ? sevenDayPrices.reduce((sum: number, entry: any) => sum + entry.price / 100, 0) /
-          sevenDayPrices.length
-        : null;
-
-    const thirtyDayAvg =
-      thirtyDayPrices.length > 0
-        ? thirtyDayPrices.reduce((sum: number, entry: any) => sum + entry.price / 100, 0) /
-          thirtyDayPrices.length
-        : null;
-
-    const currentPrice = product?.currentPrice ? product.currentPrice / 100 : 0;
-    const sevenDayChange = sevenDayAvg ? ((currentPrice - sevenDayAvg) / sevenDayAvg) * 100 : null;
-    const thirtyDayChange = thirtyDayAvg ? ((currentPrice - thirtyDayAvg) / thirtyDayAvg) * 100 : null;
-
-    return { sevenDayAvg, thirtyDayAvg, sevenDayChange, thirtyDayChange };
+    return { average, change };
   };
 
   const analytics = calculatePriceAnalytics();
@@ -318,57 +327,79 @@ export default function ProductDetailModal({
                 </div>
               </div>
 
-              {/* Price Analytics */}
-              {analytics.sevenDayAvg !== null || analytics.thirtyDayAvg !== null ? (
+              {/* Price History Range */}
+              <div className="border-t pt-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Analysis range</h3>
+                    <p className="text-sm text-gray-500">{rangeLabel}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Price history range">
+                    {(["all", "7d", "30d", "90d", "1y", "custom"] as PriceHistoryRangePreset[]).map((preset) => (
+                      <Button
+                        key={preset}
+                        type="button"
+                        size="sm"
+                        variant={rangePreset === preset ? "default" : "outline"}
+                        aria-pressed={rangePreset === preset}
+                        onClick={() => setRangePreset(preset)}
+                      >
+                        {{ all: "All", "7d": "7d", "30d": "30d", "90d": "90d", "1y": "1 year", custom: "Custom" }[preset]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {rangePreset === "custom" && (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-sm text-gray-600">
+                      From
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(event) => setCustomStartDate(event.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="text-sm text-gray-600">
+                      To
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(event) => setCustomEndDate(event.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+                )}
+                {customRangeInvalid && (
+                  <p className="mt-2 text-sm text-red-600">The start date must be on or before the end date.</p>
+                )}
+                {!customRangeInvalid && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    {historyLoading ? "Loading stored records…" : `${visiblePriceHistory.length} stored price records in this range.`}
+                  </p>
+                )}
+              </div>
+
+              {/* Selected Range Summary */}
+              {analytics.average !== null ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                  {analytics.sevenDayAvg !== null && (
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-semibold text-gray-700">7-Day Average</h3>
-                        {analytics.sevenDayChange !== null && (
-                          <div
-                            className={`flex items-center gap-1 text-sm font-semibold ${
-                              analytics.sevenDayChange > 0 ? "text-red-600" : "text-green-600"
-                            }`}
-                          >
-                            {analytics.sevenDayChange > 0 ? (
-                              <TrendingUp className="w-4 h-4" />
-                            ) : (
-                              <TrendingDown className="w-4 h-4" />
-                            )}
-                            {Math.abs(analytics.sevenDayChange).toFixed(2)}%
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {analytics.sevenDayAvg.toFixed(2)} zł
-                      </p>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700">Average in selected range</h3>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{analytics.average.toFixed(2)} zł</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-700">First-to-last change</h3>
+                      {analytics.change !== null && (
+                        <div className={`flex items-center gap-1 text-sm font-semibold ${analytics.change > 0 ? "text-red-600" : "text-green-600"}`}>
+                          {analytics.change > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                          {Math.abs(analytics.change).toFixed(2)}%
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {analytics.thirtyDayAvg !== null && (
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-semibold text-gray-700">30-Day Average</h3>
-                        {analytics.thirtyDayChange !== null && (
-                          <div
-                            className={`flex items-center gap-1 text-sm font-semibold ${
-                              analytics.thirtyDayChange > 0 ? "text-red-600" : "text-green-600"
-                            }`}
-                          >
-                            {analytics.thirtyDayChange > 0 ? (
-                              <TrendingUp className="w-4 h-4" />
-                            ) : (
-                              <TrendingDown className="w-4 h-4" />
-                            )}
-                            {Math.abs(analytics.thirtyDayChange).toFixed(2)}%
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {analytics.thirtyDayAvg.toFixed(2)} zł
-                      </p>
-                    </div>
-                  )}
+                    <p className="text-sm text-gray-500">Compared with the earliest record in this range.</p>
+                  </div>
                 </div>
               ) : null}
 
@@ -406,7 +437,7 @@ export default function ProductDetailModal({
                       <p className="mt-1 text-xl font-bold text-gray-900">{patterns.volatilityPercent == null ? "N/A" : `${patterns.volatilityPercent.toFixed(2)}%`}</p>
                     </div>
                     <div className="rounded-lg border bg-white p-4">
-                      <p className="text-xs font-semibold uppercase text-gray-500">30-day trend</p>
+                      <p className="text-xs font-semibold uppercase text-gray-500">{trendWindowDays}-day trend</p>
                       <p className={`mt-1 text-xl font-bold ${trendColor}`}>{trendLabel}</p>
                       <p className={`text-xs ${trendColor}`}>{patterns.trendPercent == null ? "N/A" : `${patterns.trendPercent >= 0 ? "+" : ""}${patterns.trendPercent.toFixed(2)}%`}</p>
                     </div>
@@ -419,7 +450,7 @@ export default function ProductDetailModal({
               {/* Price History Chart */}
               <div className="border-t pt-6">
                 <h3 className="text-lg font-semibold mb-4">
-                  Price History (Last 30 Days)
+                  Price History ({rangeLabel})
                 </h3>
                 {historyLoading ? (
                   <div className="flex justify-center py-8">

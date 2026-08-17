@@ -10,7 +10,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import {
   getAllProducts,
   getProductById,
-  getProductPriceHistoryByDate,
+  getProductPriceHistoryInRange,
   getAllProductPriceHistory,
   getAdminByUsername,
   createProduct,
@@ -30,6 +30,27 @@ import {
   deleteWebsiteTemplate,
 } from "./db";
 import { products, priceHistory } from "../drizzle/schema";
+
+const historyDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Dates must use YYYY-MM-DD format");
+const historyRangeInput = z.object({
+  productId: z.number(),
+  startDate: historyDate.optional(),
+  endDate: historyDate.optional(),
+  trendWindowDays: z.number().int().min(1).max(3650).optional(),
+}).refine(
+  ({ startDate, endDate }) => !startDate || !endDate || startDate <= endDate,
+  { message: "Start date must be on or before end date" },
+);
+
+type HistoryRangeInput = z.infer<typeof historyRangeInput>;
+
+function getHistoryBounds(input: HistoryRangeInput): { startDate?: Date; endDateExclusive?: Date } {
+  const startDate = input.startDate ? new Date(`${input.startDate}T00:00:00.000Z`) : undefined;
+  const endDateExclusive = input.endDate
+    ? new Date(Date.parse(`${input.endDate}T00:00:00.000Z`) + 24 * 60 * 60 * 1000)
+    : undefined;
+  return { startDate, endDateExclusive };
+}
 import { scrapeProduct } from "./scraper";
 import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
@@ -100,33 +121,36 @@ export const appRouter = router({
 
     // Get price history for a product (public access)
     priceHistory: publicProcedure
-      .input(z.object({ productId: z.number() }))
+      .input(historyRangeInput)
       .query(async ({ input }) => {
-        return getProductPriceHistoryByDate(input.productId, 30);
+        const { startDate, endDateExclusive } = getHistoryBounds(input);
+        return getProductPriceHistoryInRange(input.productId, startDate, endDateExclusive);
       }),
 
     // Historical pattern metrics for a product. These metrics describe stored history only.
     pricePatterns: publicProcedure
-      .input(z.object({ productId: z.number() }))
+      .input(historyRangeInput)
       .query(async ({ input }) => {
         const product = await getProductById(input.productId);
         if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
 
-        const history = await getAllProductPriceHistory(input.productId);
+        const { startDate, endDateExclusive } = getHistoryBounds(input);
+        const history = await getProductPriceHistoryInRange(input.productId, startDate, endDateExclusive);
         return {
           productId: product.id,
-          patterns: calculatePricePatterns(history, product.currentPrice),
+          patterns: calculatePricePatterns(history, undefined, input.trendWindowDays ?? 30),
         };
       }),
 
-    // Downloadable all-time history data for a single product.
+    // Downloadable history data for a single product, optionally limited to a date range.
     exportHistory: publicProcedure
-      .input(z.object({ productId: z.number() }))
+      .input(historyRangeInput)
       .query(async ({ input }) => {
         const product = await getProductById(input.productId);
         if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
 
-        const history = await getAllProductPriceHistory(input.productId);
+        const { startDate, endDateExclusive } = getHistoryBounds(input);
+        const history = await getProductPriceHistoryInRange(input.productId, startDate, endDateExclusive);
         return {
           productId: product.id,
           filename: safeExportFilename(product.name),
