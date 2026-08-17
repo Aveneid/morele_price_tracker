@@ -9,13 +9,16 @@
   "env_vars": {
     "DATABASE_URL": "mysql://3sYD7pt8wPuFWH3.root:v1V1u9l6zwek8O6fqvsq@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/Y9rYu3gSkPyNmxB5akedhP?ssl={\"rejectUnauthorized\":true}"
   },
-  "experiments": null,
+  "experiments": [
+    "no_db_push"
+  ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663221297223/Y9rYu3gSkPyNmxB5akedhP",
-    "access_key_id": "ASIAZV3A2ECZO6SKX2Q3",
-    "secret_access_key": "67JqzPVzqL3M3eHYqc+N1I5opEK+4B836+N11JQT",
-    "session_token": "IQoJb3JpZ2luX2VjEGIaCXVzLWVhc3QtMSJHMEUCIQCK8XKbjcr8Rax6v6jY68ae7qKcjjjzUF/Mpn8RlXUjCAIgHnSs2I5S7npNTX1VfyHBa7xY7j71aPKRofmp4PsgfWEq9gMIKxAEGgw2NjUzODYwOTg4NjYiDI89pUJkTClq/efkTirTAwzEvSeiANZV8/G19ZrSHgolh4TkeDNHzOy5uYMYEI4mBsFzEVhPc3CNO0FgfIWvpea6Gynd29K6lt0Q078Y3q5KjWRbXj0rkDQhPIUXJD80FqmzkWlXBR/pzSe/+bnBl70AQ73eVu0nRHHGl9XSGpfcWgrGTHW8C16iWJPj3VeI4FAeZFmUzLyouA0JDnR9RJ3aS6sXM2me51DW3XlybBTf2uwYDA812kMRX9sbvhRwIw5GsmXrkHlk1gYoJescqnwus0NuR2LEWrg2v1VbhVpvPy14pOK7XppGaQN1Jj9i28eaRCKoYCFKRtH4u6VVkWkoEi696g2CXgZd6Bx9gLQ+Q3zfPDfMYhgL0v1hmg/kZFDGfe6cV3Facusti4DuIEPsd7Qm6dJbT2sAk5pE9qLb2FPU67WRa752moEZNtbOlpcGP0a4zKTQENIk/Jnl165eWR2HBFeFvE1TqKPQrcoYYQ3Ki44UrOgw+wI/eAU8sC+oqLBsnl47+nEx0GNmlFayjLfRTNNzNtZDQRVuWOOMRhaxYBjRljaLjAzcOXOCm8K8FxUGfaQv09+rShpOSfD5QOWTJFyg83WSocBpJZTIMgu0Q6NKTJeGEZPa/13OAkbLMMap/NAGOp0BUiV4g2l6FOjUdQaBCvYyGzcVYXV5YuhFd61wHQopZDiO5IRo4TttQraJBFQE4uNUzancWBvg3I1Ed0n3I2m8LxhV6SOyd0J+YxF/u0DAn30GIwPxthqGBSr2g4oW6tPjyAP9n+09FkmeWfL38UPzqMYcur+/guZ77oZZwrZFSRanIn679Dq3P0FDRL7Lz7auVB9Tx/qlKP8CnA8Vyw==",
-    "expiration": "2026-06-03T05:37:10.000Z"
+    "access_key_id": "ASIAZV3A2ECZN7EFCK6C",
+    "secret_access_key": "ytmpTxCKPUotLMhfGUYsvq6tkYJG0vUTC+8JQ+MU",
+    "session_token": "IQoJb3JpZ2luX2VjEIP//////////wEaCXVzLWVhc3QtMSJHMEUCIQC9BGh84JThDM+DpQsqJVgWE+lRcW2RC32BFGqZiWiH4gIgMPAWJPcDutoIO2hduVqO8y37wuoBoEVrOXEEOvnk2Xgq9gMITBAEGgw2NjUzODYwOTg4NjYiDBtP5Xy8+pKtd/qlbyrTAx3HwHHD7oUpIKJdS50fsMfnH+lxj75TcFPwaZzUe11Il+brG2Z0t+uGYLgBmIPcRtFsxTMZgTf1tZ8HO2kHCugdXWTKaESapNykjWg3Yh3QBfs7EanbzX1IU9awvfBlxMvl+HY19nrC564MnaXzD6z56FDFCY1/cqzwZJ4M+c3BaxJPlupw0a1/jdh3BrertCQL2A8ZgHsSH+LkYD7RJDkBChj9glKS8dlsUoVzEtWvASOtC9sTU2o5CIqc0hsGD6YGpq02RixhIJX5dn/GrYVJgPwO/yUU+CTNsiCDJTeQzoCh5XxeHvPyTvENbQ3XDmiilvc2q7dTA02Ju6xGJHM7kC/45wNf8HgMR7Cmg5Lbqt20eKZQuIZsW+6chF8jPkfaiqOalGlanStD6qDPS4ri4VLsC/hQ99Zsagp4Lbv/M5FA5Oww4sOTq8P9SUVaIEnkUYyBWUh4d8co0T5aydkZzBK7ROJU5au0wu8uwC8QKFHdxa+x6z39BftLMbT/5SmDKKZy3iJEAzKqn100wO7Bz+rBzu7EuICb5f9C4FU4CBc9Bt8gqu0VIqhn7OKKMfF44gMtAX2ScOrUAGiU8jCQD5n6wHC53RXYeC+zHYqEENGSMOKnjdQGOp0BWjyH03UZ8Z0w2mMtYk6RGDYNzjr4My2jQMCnT6LfyTD1H4ZDHsUx/0zk1z37F+XGAR0RwhNc3aF7pADs3YuyfNL4mzeiaqZDq53y+CB3dJtjHOcs9DtXverG4DNVkfu+4txvEszh/thTkVB0wufNy1yNbB4DwPRbzDsgOx2Aof0SjHMCB+2cpk3IZd9D47RG1+OAUhrqQAOxDPDWaA==",
+    "expiration": "2026-08-18T06:33:06.000Z",
+    "backend": "GIT_BACKEND_S3"
   },
   "name": "morele_price_tracker",
   "path": "/home/ubuntu/morele_price_tracker",

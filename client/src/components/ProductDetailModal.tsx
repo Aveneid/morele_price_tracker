@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Loader2, ExternalLink, RefreshCw, Copy, Check, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, ExternalLink, RefreshCw, Copy, Check, Download, TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -53,6 +53,15 @@ export default function ProductDetailModal({
       { productId },
       { enabled: isOpen && !!product }
     );
+  const { data: patternResponse, isLoading: patternsLoading } =
+    trpc.products.pricePatterns.useQuery(
+      { productId },
+      { enabled: isOpen && !!product }
+    );
+  const exportHistoryQuery = trpc.products.exportHistory.useQuery(
+    { productId },
+    { enabled: false }
+  );
 
   const priceCheckMutation = trpc.products.requestPriceCheck.useMutation({
     onSuccess: () => {
@@ -69,6 +78,30 @@ export default function ProductDetailModal({
     setCopied(true);
     toast.success("Share link copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadHistory = async () => {
+    try {
+      const result = await exportHistoryQuery.refetch();
+      const exportData = result.data;
+      if (!exportData) {
+        toast.error("No price history is available for export.");
+        return;
+      }
+
+      const blob = new Blob([exportData.csv], { type: exportData.contentType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = exportData.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${exportData.rowCount} price records.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export price history.");
+    }
   };
 
   const formatPrice = (cents: number | null) => {
@@ -138,6 +171,9 @@ export default function ProductDetailModal({
   };
 
   const analytics = calculatePriceAnalytics();
+  const patterns = patternResponse?.patterns;
+  const trendLabel = patterns?.trendDirection === "up" ? "Rising" : patterns?.trendDirection === "down" ? "Falling" : patterns?.trendDirection === "stable" ? "Stable" : "Not enough data";
+  const trendColor = patterns?.trendDirection === "up" ? "text-red-600" : patterns?.trendDirection === "down" ? "text-green-600" : "text-gray-600";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -333,6 +369,50 @@ export default function ProductDetailModal({
                   )}
                 </div>
               ) : null}
+
+              {/* Historical Pattern Analytics */}
+              <div className="border-t pt-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Historical Price Patterns</h3>
+                    <p className="text-sm text-gray-500">Based on stored prices only; this is not a forecast.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadHistory}
+                    disabled={exportHistoryQuery.isFetching || patternsLoading || !patterns?.sampleCount}
+                    className="whitespace-nowrap"
+                  >
+                    {exportHistoryQuery.isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                    Download Price History
+                  </Button>
+                </div>
+                {patternsLoading ? (
+                  <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                ) : patterns?.sampleCount ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-lg border bg-white p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Lowest price</p>
+                      <p className="mt-1 text-xl font-bold text-gray-900">{formatPrice(patterns.minimum?.price ?? null)}</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Highest price</p>
+                      <p className="mt-1 text-xl font-bold text-gray-900">{formatPrice(patterns.maximum?.price ?? null)}</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">Volatility</p>
+                      <p className="mt-1 text-xl font-bold text-gray-900">{patterns.volatilityPercent == null ? "N/A" : `${patterns.volatilityPercent.toFixed(2)}%`}</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">30-day trend</p>
+                      <p className={`mt-1 text-xl font-bold ${trendColor}`}>{trendLabel}</p>
+                      <p className={`text-xs ${trendColor}`}>{patterns.trendPercent == null ? "N/A" : `${patterns.trendPercent >= 0 ? "+" : ""}${patterns.trendPercent.toFixed(2)}%`}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">No historical prices available yet.</div>
+                )}
+              </div>
 
               {/* Price History Chart */}
               <div className="border-t pt-6">

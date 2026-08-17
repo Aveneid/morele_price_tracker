@@ -270,6 +270,19 @@ export async function getProductPriceHistoryByDate(
     .orderBy(desc(priceHistory.recordedAt));
 }
 
+export async function getAllProductPriceHistory(
+  productId: number
+): Promise<PriceHistory[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(priceHistory)
+    .where(eq(priceHistory.productId, productId))
+    .orderBy(priceHistory.recordedAt);
+}
+
 // ============ SETTINGS QUERIES ============
 
 export async function getOrCreateSettings(userId: number): Promise<Settings> {

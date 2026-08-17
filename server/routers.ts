@@ -11,6 +11,7 @@ import {
   getAllProducts,
   getProductById,
   getProductPriceHistoryByDate,
+  getAllProductPriceHistory,
   getAdminByUsername,
   createProduct,
   recordPrice,
@@ -44,6 +45,7 @@ import {
 } from "./db";
 import { scheduleJob, unscheduleJob, executeJob } from "./jobScheduler";
 import { adminRouter } from "./_core/adminRouter";
+import { calculatePricePatterns, buildPriceHistoryCsv, safeExportFilename } from "./priceAnalytics";
 
 // ============ PASSWORD UTILITIES ============
 
@@ -101,6 +103,37 @@ export const appRouter = router({
       .input(z.object({ productId: z.number() }))
       .query(async ({ input }) => {
         return getProductPriceHistoryByDate(input.productId, 30);
+      }),
+
+    // Historical pattern metrics for a product. These metrics describe stored history only.
+    pricePatterns: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .query(async ({ input }) => {
+        const product = await getProductById(input.productId);
+        if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
+
+        const history = await getAllProductPriceHistory(input.productId);
+        return {
+          productId: product.id,
+          patterns: calculatePricePatterns(history, product.currentPrice),
+        };
+      }),
+
+    // Downloadable all-time history data for a single product.
+    exportHistory: publicProcedure
+      .input(z.object({ productId: z.number() }))
+      .query(async ({ input }) => {
+        const product = await getProductById(input.productId);
+        if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" });
+
+        const history = await getAllProductPriceHistory(input.productId);
+        return {
+          productId: product.id,
+          filename: safeExportFilename(product.name),
+          contentType: "text/csv;charset=utf-8",
+          rowCount: history.length,
+          csv: `\\ufeff${buildPriceHistoryCsv(product, history)}`,
+        };
       }),
 
     // Request manual price check (public access, with 15-minute cooldown)
