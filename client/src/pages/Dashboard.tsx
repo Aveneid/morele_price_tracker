@@ -23,9 +23,11 @@ export default function Dashboard() {
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
 
+  const utils = trpc.useUtils();
   const addProductMutation = trpc.products.add.useMutation({
-    onSuccess: () => {
-      toast.success("Product added successfully!");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Product added successfully!");
+      utils.products.list.invalidate();
       setNewProductUrl("");
       setNewProductCode("");
     },
@@ -118,7 +120,7 @@ export default function Dashboard() {
             <Input
               placeholder={
                 inputMode === "url"
-                  ? "https://www.morele.net/product-name-123456/"
+                  ? "Product or category link (filters and sorting are kept)"
                   : "Enter product code"
               }
               value={inputMode === "url" ? newProductUrl : newProductCode}

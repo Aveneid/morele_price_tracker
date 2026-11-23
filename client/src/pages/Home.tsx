@@ -13,8 +13,8 @@ export default function Home() {
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
 
   const addProductMutation = trpc.products.add.useMutation({
-    onSuccess: () => {
-      toast.success("Product added successfully!");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Product added successfully!");
       setNewProductUrl("");
       setNewProductCode("");
       // Redirect to dashboard after a short delay
@@ -149,7 +149,7 @@ export default function Home() {
               <Input
                 placeholder={
                   inputMode === "url"
-                    ? "https://www.morele.net/product-name-123456/"
+                    ? "Product or category link, e.g. https://www.morele.net/kategoria/dyski-ssd-518/"
                     : "Enter product code (e.g., 1792417)"
                 }
                 value={inputMode === "url" ? newProductUrl : newProductCode}

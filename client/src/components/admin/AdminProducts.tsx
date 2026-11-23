@@ -24,9 +24,11 @@ export default function AdminProducts() {
 
   const { data: products, isLoading } = trpc.products.list.useQuery();
   
+  const utils = trpc.useUtils();
   const addProductMutation = trpc.products.add.useMutation({
-    onSuccess: () => {
-      toast.success("Product added successfully");
+    onSuccess: (data) => {
+      toast.success(data?.message || "Product added successfully");
+      utils.products.list.invalidate();
       setNewProductUrl("");
       setNewProductCode("");
     },
@@ -217,7 +219,7 @@ export default function AdminProducts() {
           <Input
             placeholder={
               inputMode === "url"
-                ? "Enter morele.net product URL..."
+                ? "Enter morele.net product or category URL..."
                 : "Enter product code..."
             }
             value={inputMode === "url" ? newProductUrl : newProductCode}
