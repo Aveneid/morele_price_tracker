@@ -10,6 +10,7 @@ import { serveStatic, setupVite } from "./vite";
 import { initializePriceTracking } from "../priceTracker";
 
 import { initializeJobScheduler } from "../jobScheduler";
+import { initializeDatabase } from "./schemaInit";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -59,6 +60,8 @@ async function startServer() {
   });
   
 
+  // Create / upgrade the database schema before anything touches the DB
+  await initializeDatabase();
   // Initialize price tracking scheduler
   await initializePriceTracking();
   // Initialize job scheduler

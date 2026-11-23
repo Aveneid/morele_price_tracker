@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, gt, lt, sql } from "drizzle-orm";
+import { eq, and, or, asc, desc, gte, gt, lt, lte, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -205,6 +205,25 @@ export async function getAllProducts(): Promise<Product[]> {
   if (!db) return [];
 
   return db.select().from(products).orderBy(desc(products.createdAt));
+}
+
+/**
+ * Products whose scheduled check time has passed (or was never set),
+ * oldest due first.
+ */
+export async function getProductsDueForCheck(
+  now: Date,
+  limit: number
+): Promise<Product[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(products)
+    .where(or(isNull(products.nextCheckTime), lte(products.nextCheckTime, now)))
+    .orderBy(asc(products.nextCheckTime))
+    .limit(limit);
 }
 
 // ============ PRICE HISTORY QUERIES ============
@@ -459,6 +478,13 @@ export async function deleteJob(id: number): Promise<boolean> {
 
   await db.delete(jobs).where(eq(jobs.id, id));
   return true;
+}
+
+export async function deleteJobExecutionsOlderThan(cutoff: Date): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(jobExecutions).where(lt(jobExecutions.createdAt, cutoff));
 }
 
 export async function getJobExecutions(

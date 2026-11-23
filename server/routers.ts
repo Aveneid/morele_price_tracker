@@ -52,7 +52,7 @@ function getHistoryBounds(input: HistoryRangeInput): { startDate?: Date; endDate
   return { startDate, endDateExclusive };
 }
 import { scrapeProduct } from "./scraper";
-import { scheduleProductPriceCheck, removeProductSchedule, updateProductSchedule } from "./priceTracker";
+import { checkProductPrice, calculateNextCheckTime } from "./priceTracker";
 import { parseCsv, validateCsvImport } from "./csvImport";
 import { debugLog, debugError, debugTable } from "./_core/debugLogger";
 import { extractDomain, isSameDomain } from "./urlUtils";
@@ -178,36 +178,19 @@ export const appRouter = router({
           });
         }
 
-        try {
-          // Scrape current price
-          const scrapedData = await scrapeProduct(product.url);
-
-          if (!scrapedData || scrapedData.price === null) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Could not scrape current price",
-            });
-          }
-
-          // Update product
-          const previousPrice = product.currentPrice;
-          await updateProduct(product.id, {
-            currentPrice: scrapedData.price || previousPrice,
-            previousPrice: previousPrice || scrapedData.price,
-            lastCheckedAt: new Date(),
-          });
-
-          return {
-            success: true,
-            message: "Price updated successfully",
-            newPrice: scrapedData.price || 0,
-          };
-        } catch (error: any) {
+        const result = await checkProductPrice(product.id);
+        if (!result.success) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to check price: ${error.message}`,
+            message: `Failed to check price: ${result.error}`,
           });
         }
+
+        return {
+          success: true,
+          message: "Price updated successfully",
+          newPrice: result.newPrice,
+        };
       }),
 
     // Add product (public access with duplicate prevention)
@@ -270,6 +253,7 @@ export const appRouter = router({
             checkIntervalMinutes: 60,
             priceAlertThreshold: 10,
             lastCheckedAt: new Date(),
+            nextCheckTime: calculateNextCheckTime(60),
           });
 
           if (!newProduct) {
@@ -313,36 +297,19 @@ export const appRouter = router({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
-        try {
-          // Scrape current price
-          const scrapedData = await scrapeProduct(product.url);
-
-          if (!scrapedData || scrapedData.price === null) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Could not scrape current price",
-            });
-          }
-
-          // Update product
-          const previousPrice = product.currentPrice;
-          await updateProduct(product.id, {
-            currentPrice: scrapedData.price || previousPrice,
-            previousPrice: previousPrice || scrapedData.price,
-            lastCheckedAt: new Date(),
-          });
-
-          return {
-            success: true,
-            message: "Product updated successfully",
-            newPrice: scrapedData.price || 0,
-          };
-        } catch (error: any) {
+        const result = await checkProductPrice(product.id);
+        if (!result.success) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to update product: ${error.message}`,
+            message: `Failed to update product: ${result.error}`,
           });
         }
+
+        return {
+          success: true,
+          message: "Product updated successfully",
+          newPrice: result.newPrice,
+        };
       }),
 
     // Delete a product
@@ -368,9 +335,6 @@ export const appRouter = router({
 
           // Delete product (cascade will delete price history)
           await db.delete(products).where(eq(products.id, input.productId));
-
-          // Remove scheduled price check
-          removeProductSchedule(input.productId);
 
           return {
             success: true,
@@ -439,6 +403,7 @@ export const appRouter = router({
                 currentPrice: scrapedData.price || 0,
                 previousPrice: scrapedData.price || 0,
                 lastCheckedAt: new Date(),
+                nextCheckTime: calculateNextCheckTime(60),
               });
 
               if (product) {
