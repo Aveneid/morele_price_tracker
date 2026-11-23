@@ -1,7 +1,27 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, Home, Filter, TrendingUp, TrendingDown, Download } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Home,
+  Filter,
+  Download,
+  List,
+  LayoutGrid,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
+import { ProductGrid, ProductThumbnail, PriceChange, formatPrice } from "@/components/ProductCards";
+import {
+  DEFAULT_SORT,
+  SORT_OPTIONS,
+  sortProducts,
+  sortToValue,
+  type ProductSort,
+  type ProductSortKey,
+} from "@/lib/productSort";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -10,6 +30,60 @@ import { exportProductsToCsv } from "@/lib/csvExport";
 import { usePriceAlerts } from "@/hooks/usePriceAlerts";
 import { CsvImportDialog } from "@/components/CsvImportDialog";
 
+type ViewMode = "list" | "grid";
+const VIEW_STORAGE_KEY = "dashboard.viewMode";
+const SORT_STORAGE_KEY = "dashboard.sort";
+
+function loadViewMode(): ViewMode {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function loadSort(): ProductSort {
+  try {
+    const stored = localStorage.getItem(SORT_STORAGE_KEY);
+    const option = SORT_OPTIONS.find(o => o.value === stored);
+    return option ? option.sort : DEFAULT_SORT;
+  } catch {
+    return DEFAULT_SORT;
+  }
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string;
+  sortKey: ProductSortKey;
+  sort: ProductSort;
+  onSort: (key: ProductSortKey) => void;
+}) {
+  const active = sort.key === sortKey;
+  const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 whitespace-nowrap hover:text-blue-600 transition-colors ${
+          active ? "text-blue-600" : ""
+        }`}
+      >
+        {label}
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+    </th>
+  );
+}
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -17,6 +91,27 @@ export default function Dashboard() {
   const [newProductUrl, setNewProductUrl] = useState("");
   const [newProductCode, setNewProductCode] = useState("");
   const [inputMode, setInputMode] = useState<"url" | "code">("url");
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const [sort, setSort] = useState<ProductSort>(loadSort);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
+      localStorage.setItem(SORT_STORAGE_KEY, sortToValue(sort));
+    } catch {
+      // storage unavailable (private mode) - preferences just won't persist
+    }
+  }, [viewMode, sort]);
+
+  // Clicking a column header: first click picks the most useful direction
+  // (biggest drop / cheapest first), the next click reverses it.
+  const handleHeaderSort = (key: ProductSortKey) => {
+    setSort(current =>
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "added" ? "desc" : "asc" }
+    );
+  };
 
   // Initialize push notifications for price alerts
   usePriceAlerts();
@@ -57,19 +152,13 @@ export default function Dashboard() {
     : [];
 
   // Filter products by category
-  const filteredProducts = selectedCategory
-    ? products?.filter((p: any) => p.category === selectedCategory)
-    : products;
-
-  const getPriceChangeIndicator = (product: any) => {
-    if (!product.previousPrice || !product.currentPrice) return null;
-    const change = ((product.currentPrice - product.previousPrice) / product.previousPrice) * 100;
-    return {
-      percentage: Math.abs(change).toFixed(1),
-      isUp: change > 0,
-      isDown: change < 0,
-    };
-  };
+  const filteredProducts = useMemo(() => {
+    if (!products) return products;
+    const visible = selectedCategory
+      ? products.filter(p => p.category === selectedCategory)
+      : products;
+    return sortProducts(visible, sort);
+  }, [products, selectedCategory, sort]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -205,10 +294,51 @@ export default function Dashboard() {
 
         {/* Products List */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-gray-900">
               Tracked Products ({filteredProducts?.length || 0})
             </h2>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="hidden sm:inline">Sort by</span>
+                <select
+                  value={sortToValue(sort)}
+                  onChange={e => {
+                    const option = SORT_OPTIONS.find(o => o.value === e.target.value);
+                    if (option) setSort(option.sort);
+                  }}
+                  className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {SORT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex rounded-md border border-gray-200 p-0.5 bg-gray-50" role="group" aria-label="View">
+                {([
+                  { mode: "list", label: "List view", Icon: List },
+                  { mode: "grid", label: "Grid view", Icon: LayoutGrid },
+                ] as const).map(({ mode, label, Icon }) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    aria-pressed={viewMode === mode}
+                    title={label}
+                    className={`p-1.5 rounded transition-colors ${
+                      viewMode === mode
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="sr-only">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {isLoading ? (
@@ -220,81 +350,58 @@ export default function Dashboard() {
               <p className="text-lg font-medium">No products tracked yet.</p>
               <p className="text-sm mt-1">Add one above to get started!</p>
             </div>
+          ) : viewMode === "grid" ? (
+            <ProductGrid products={filteredProducts} onSelect={setSelectedProduct} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                      Product Name
-                    </th>
+                    <SortableHeader label="Product Name" sortKey="name" sort={sort} onSort={handleHeaderSort} />
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                       Category
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                      Current Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                      Change
-                    </th>
+                    <SortableHeader label="Current Price" sortKey="price" sort={sort} onSort={handleHeaderSort} />
+                    <SortableHeader label="Change" sortKey="change" sort={sort} onSort={handleHeaderSort} />
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
                       Last Checked
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product: any) => {
-                    const priceChange = getPriceChangeIndicator(product);
-                    return (
-                      <tr
-                        key={product.id}
-                        onClick={() => setSelectedProduct(product)}
-                        className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        <td className="px-6 py-4 text-sm text-blue-600 font-medium hover:underline">
-                          {product.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {product.category || "—"}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {product.currentPrice
-                            ? `${(product.currentPrice / 100).toFixed(2)} zł`
-                            : "—"}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          {priceChange ? (
-                            <div className="flex items-center gap-1">
-                              {priceChange.isDown ? (
-                                <>
-                                  <TrendingDown className="w-4 h-4 text-green-600" />
-                                  <span className="text-green-600 font-medium">
-                                    -{priceChange.percentage}%
-                                  </span>
-                                </>
-                              ) : priceChange.isUp ? (
-                                <>
-                                  <TrendingUp className="w-4 h-4 text-red-600" />
-                                  <span className="text-red-600 font-medium">
-                                    +{priceChange.percentage}%
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-gray-600">No change</span>
-                              )}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {product.lastCheckedAt
-                            ? new Date(product.lastCheckedAt).toLocaleString("pl-PL")
-                            : "Never"}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filteredProducts.map(product => (
+                    <tr
+                      key={product.id}
+                      onClick={() => setSelectedProduct(product)}
+                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      <td className="px-6 py-3 text-sm text-blue-600 font-medium">
+                        <div className="flex items-center gap-3">
+                          <ProductThumbnail
+                            src={product.imageUrl}
+                            alt=""
+                            className="w-10 h-10 shrink-0 rounded border border-gray-100 p-0.5"
+                            iconClassName="w-4 h-4"
+                          />
+                          <span className="hover:underline">{product.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-600">
+                        {product.category || "—"}
+                      </td>
+                      <td className="px-6 py-3 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                        {formatPrice(product.currentPrice)}
+                      </td>
+                      <td className="px-6 py-3 text-sm whitespace-nowrap">
+                        <PriceChange product={product} />
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-600">
+                        {product.lastCheckedAt
+                          ? new Date(product.lastCheckedAt).toLocaleString("pl-PL")
+                          : "Never"}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
