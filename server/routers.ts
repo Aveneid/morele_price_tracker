@@ -53,6 +53,8 @@ function getHistoryBounds(input: HistoryRangeInput): { startDate?: Date; endDate
 }
 import { scrapeProduct } from "./scraper";
 import { checkProductPrice, calculateNextCheckTime } from "./priceTracker";
+import { isMoreleCategoryUrl } from "./categoryScraper";
+import { importCategoryPage, describeImport } from "./categoryImport";
 import { parseCsv, validateCsvImport } from "./csvImport";
 import { debugLog, debugError, debugTable } from "./_core/debugLogger";
 import { extractDomain, isSameDomain } from "./urlUtils";
@@ -199,7 +201,24 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         try {
           debugLog('ADD_PRODUCT', 'Starting product addition with input:', input.input);
-          
+
+          // Category link (with filters/sorting): add every product listed on that page
+          if (isMoreleCategoryUrl(input.input)) {
+            const imported = await importCategoryPage(input.input.trim());
+            if (imported.added === 0 && imported.alreadyTracked === 0) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `No products could be added from this category page (${describeImport(imported)}).`,
+              });
+            }
+            return {
+              success: true,
+              message: describeImport(imported),
+              product: null,
+              categoryImport: imported,
+            };
+          }
+
           // Scrape product
           const scrapedData = await scrapeProduct(input.input);
           debugLog('ADD_PRODUCT', 'Scraped data:', scrapedData);
