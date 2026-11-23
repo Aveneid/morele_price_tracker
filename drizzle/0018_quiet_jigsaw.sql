@@ -1,6 +1,6 @@
 CREATE TABLE `websiteTemplates` (
 	`id` int AUTO_INCREMENT NOT NULL,
-	`websiteUrl` varchar(2048) NOT NULL,
+	`websiteUrl` varchar(768) NOT NULL,
 	`websiteName` varchar(255) NOT NULL,
 	`selectors` text NOT NULL,
 	`defaultCategory` varchar(255),

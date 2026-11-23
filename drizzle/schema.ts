@@ -148,7 +148,7 @@ export type InsertUserPriceAlert = typeof userPriceAlerts.$inferInsert;
 
 export const websiteTemplates = mysqlTable("websiteTemplates", {
   id: int("id").autoincrement().primaryKey(),
-  websiteUrl: varchar("websiteUrl", { length: 2048 }).notNull().unique(),
+  websiteUrl: varchar("websiteUrl", { length: 768 }).notNull().unique(),
   websiteName: varchar("websiteName", { length: 255 }).notNull(),
   selectors: text("selectors").notNull(),
   defaultCategory: varchar("defaultCategory", { length: 255 }),
