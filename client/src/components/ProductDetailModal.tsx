@@ -186,7 +186,8 @@ export default function ProductDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+      {/* sm: prefix needed - the base DialogContent sets sm:max-w-lg, which otherwise wins on desktop */}
+      <DialogContent className="sm:max-w-6xl w-full max-h-[95vh] overflow-y-auto">
         <DialogHeader className={product ? undefined : "sr-only"}>
           <DialogTitle className={product ? "text-xl" : undefined}>
             {product?.name ?? "Product details"}
